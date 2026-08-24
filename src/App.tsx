@@ -163,7 +163,7 @@ export function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-orange-500/30">
       
-      {/* Top Navigation */}
+      {/* Top Navigation & Mobile Bottom Bar */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -176,17 +176,17 @@ export function App() {
         onAddManualPoint={() => setIsImporterOpen(true)}
       />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-6 py-5">
+      {/* Main Container with safe-area padding for mobile bottom bar */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-3.5 sm:py-5 pb-20 md:pb-6">
         
         {/* Live Detection Toast */}
         {liveToast && (
-          <div className="mb-4 p-3 rounded-2xl bg-gradient-to-r from-orange-600/90 to-red-600/90 text-white shadow-xl shadow-red-500/20 border border-white/20 flex items-center justify-between animate-in slide-in-from-top-4 duration-300">
-            <div className="flex items-center gap-2.5">
-              <Radio className="w-5 h-5 text-amber-200 animate-pulse" />
-              <div className="text-xs">
-                <span className="font-bold">Deteksi Satelit Baru: </span>
-                <span className="font-mono">{liveToast.id}</span> di {liveToast.location} ({liveToast.category})
+          <div className="mb-3 p-2.5 sm:p-3 rounded-2xl bg-gradient-to-r from-orange-600/90 to-red-600/90 text-white shadow-xl shadow-red-500/20 border border-white/20 flex items-center justify-between animate-in slide-in-from-top-4 duration-300">
+            <div className="flex items-center gap-2 min-w-0">
+              <Radio className="w-4 h-4 text-amber-200 animate-pulse shrink-0" />
+              <div className="text-[11px] sm:text-xs truncate">
+                <span className="font-bold">Deteksi Baru: </span>
+                <span className="font-mono">{liveToast.id}</span> di {liveToast.location}
               </div>
             </div>
             <button
@@ -194,9 +194,9 @@ export function App() {
                 const target = hotspots.find(h => h.id === liveToast.id);
                 if (target) handleZoomToMap(target);
               }}
-              className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-semibold backdrop-blur-sm transition"
+              className="px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded-lg text-[10px] font-semibold shrink-0 ml-2 transition"
             >
-              Lihat di Peta
+              Lihat
             </button>
           </div>
         )}
@@ -219,7 +219,7 @@ export function App() {
 
         {/* Tab 1: Peta GIS View */}
         {activeTab === 'map' && (
-          <div className="space-y-5 animate-in fade-in duration-200">
+          <div className="space-y-4 animate-in fade-in duration-200">
             <GisMap
               hotspots={filteredHotspots}
               selectedHotspot={selectedHotspot}
@@ -228,39 +228,39 @@ export function App() {
             />
 
             {/* Quick Insights strip below map */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 rounded-2xl glass-panel border border-slate-800 flex items-start gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="p-3.5 rounded-2xl glass-panel border border-slate-800 flex items-start gap-2.5">
                 <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
                   <TreePine className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs text-emerald-300">Zona Konservasi Prioritas</h4>
+                  <h4 className="font-bold text-xs text-emerald-300">Hutan Lindung & Konservasi</h4>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {summary.hutanLindung} titik api terdeteksi dalam kawasan Taman Nasional & Suaka Margasatwa. Pemantauan intensif di TN Tesso Nilo & TN Sebangau.
+                    {summary.hutanLindung} titik api terdeteksi dalam Taman Nasional (TN Tesso Nilo, Sebangau, Tanjung Puting).
                   </p>
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl glass-panel border border-slate-800 flex items-start gap-3">
+              <div className="p-3.5 rounded-2xl glass-panel border border-slate-800 flex items-start gap-2.5">
                 <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
                   <Palmtree className="w-4 h-4" />
                 </div>
                 <div>
                   <h4 className="font-bold text-xs text-amber-300">Pengawasan Konsesi Sawit</h4>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {summary.sawitTotal} titik api beririsan dengan perkebunan sawit ({summary.sawitInside} dalam izin HGU, {summary.sawitBuffer} di zona penyangga &lt;2km).
+                    {summary.sawitTotal} titik api ({summary.sawitInside} dalam izin HGU, {summary.sawitBuffer} buffer penyangga &lt;2km).
                   </p>
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl glass-panel border border-slate-800 flex items-start gap-3">
+              <div className="p-3.5 rounded-2xl glass-panel border border-slate-800 flex items-start gap-2.5">
                 <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 shrink-0">
                   <Pickaxe className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs text-purple-300">Konsesi Tambang & Perkotaan</h4>
+                  <h4 className="font-bold text-xs text-purple-300">Tambang & Perkotaan</h4>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {summary.tambang} titik di area tambang batubara/nikel dan {summary.perkotaan} titik di sabuk kota/pemukiman (potensi ancaman ISPA).
+                    {summary.tambang} titik di IUP tambang dan {summary.perkotaan} titik di sekitar kota/pemukiman (peringatan ISPA).
                   </p>
                 </div>
               </div>
@@ -290,59 +290,59 @@ export function App() {
         {/* Tab 4: Executive Report View */}
         {activeTab === 'report' && (
           <div className="animate-in fade-in duration-200">
-            <div className="glass-panel p-6 rounded-3xl border border-slate-800 shadow-2xl">
-              <div className="flex items-center justify-between mb-4">
+            <div className="glass-panel p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-2xl space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-orange-400" />
-                    Pratinjau Laporan Ringkasan Eksekutif Karhutla
+                  <h3 className="text-sm sm:text-base font-extrabold text-white flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-orange-400" />
+                    Laporan Ringkasan Eksekutif Karhutla
                   </h3>
-                  <p className="text-xs text-slate-400">
-                    Dokumen resmi ringkasan spasial untuk keperluan advokasi, penegakan hukum, dan pelaporan pimpinan.
+                  <p className="text-[11px] sm:text-xs text-slate-400">
+                    Dokumen resmi ringkasan spasial untuk advokasi dan pelaporan pimpinan.
                   </p>
                 </div>
 
                 <button
                   onClick={() => setIsReportOpen(true)}
-                  className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-orange-500/20 transition flex items-center gap-1.5"
+                  className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 text-white font-bold rounded-xl text-xs shadow-lg flex items-center justify-center gap-1.5 transition"
                 >
                   <FileText className="w-4 h-4" />
-                  <span>Buka Lembar Lengkap & Cetak</span>
+                  <span>Buka Format Cetak / PDF</span>
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                    Statistik Ringkas Zonasi
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Statistik Ringkas Zonasi Lahan
                   </span>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5 text-[11px]">
                     <div className="flex justify-between items-center text-emerald-300">
-                      <span>🌲 Hutan Lindung & Konservasi:</span>
+                      <span>🌲 Hutan Lindung:</span>
                       <strong className="font-mono">{summary.hutanLindung} titik ({Math.round((summary.hutanLindung / (summary.total || 1)) * 100)}%)</strong>
                     </div>
                     <div className="flex justify-between items-center text-amber-300">
-                      <span>🌴 Konsesi Sawit (Dalam & Buffer):</span>
+                      <span>🌴 Konsesi Sawit:</span>
                       <strong className="font-mono">{summary.sawitTotal} titik ({Math.round((summary.sawitTotal / (summary.total || 1)) * 100)}%)</strong>
                     </div>
                     <div className="flex justify-between items-center text-purple-300">
-                      <span>⛏️ Konsesi Pertambangan:</span>
+                      <span>⛏️ Konsesi Tambang:</span>
                       <strong className="font-mono">{summary.tambang} titik ({Math.round((summary.tambang / (summary.total || 1)) * 100)}%)</strong>
                     </div>
                     <div className="flex justify-between items-center text-cyan-300">
-                      <span>🏙️ Kawasan Perkotaan/Pemukiman:</span>
+                      <span>🏙️ Kawasan Perkotaan:</span>
                       <strong className="font-mono">{summary.perkotaan} titik ({Math.round((summary.perkotaan / (summary.total || 1)) * 100)}%)</strong>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                     Dasar Regulasi & Penegakan Hukum
                   </span>
-                  <ul className="space-y-1.5 text-slate-300 text-[11px] list-disc list-inside">
+                  <ul className="space-y-1 text-slate-300 text-[10px] sm:text-[11px] list-disc list-inside">
                     <li>UU No. 18/2013 tentang Pencegahan dan Pemberantasan Perusakan Hutan.</li>
-                    <li>UU No. 32/2009 tentang PPLH (Asas Tanggung Jawab Mutlak / Strict Liability).</li>
+                    <li>UU No. 32/2009 tentang Perlindungan dan Pengelolaan Lingkungan Hidup.</li>
                     <li>UU No. 41/1999 tentang Kehutanan Pasal 78.</li>
                   </ul>
                 </div>
@@ -353,13 +353,13 @@ export function App() {
 
       </main>
 
-      {/* Footer */}
-      <footer className="glass-panel border-t border-slate-800/80 py-4 px-6 text-center text-xs text-slate-400">
+      {/* Footer (Desktop only or clean bottom) */}
+      <footer className="hidden md:block glass-panel border-t border-slate-800/80 py-4 px-6 text-center text-xs text-slate-400">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-orange-500" />
             <span className="font-bold text-slate-200">Sipongi Land-Watch</span>
-            <span>— Dashboard Interaktif Pemantauan Karhutla Berbasis Zonasi Lahan</span>
+            <span>— Dashboard Analisis Spasial Zonasi Karhutla</span>
           </div>
           <div className="text-[11px] text-slate-500">
             Sumber Data: Sipongi+ KLHK, Satelit VIIRS/MODIS & GIS Konsesi Indonesia.
@@ -367,7 +367,7 @@ export function App() {
         </div>
       </footer>
 
-      {/* Modals & Drawers */}
+      {/* Modals & Bottom Sheets */}
       <HotspotDetailModal
         hotspot={selectedHotspot}
         onClose={() => {

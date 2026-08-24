@@ -9,9 +9,9 @@ import {
   ShieldAlert, 
   ExternalLink, 
   Zap, 
-  Scale,
-  Compass,
-  FileCheck2
+  Scale, 
+  Compass, 
+  FileCheck2 
 } from 'lucide-react';
 import type { Hotspot } from '../types';
 
@@ -32,13 +32,16 @@ export const HotspotDetailModal: React.FC<HotspotDetailModalProps> = ({
   const sipongiUrl = `https://sipongi.gakkum.kehutanan.go.id/peta`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl glass-panel-card rounded-3xl border border-slate-700/80 shadow-2xl overflow-hidden bg-slate-950/95 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative w-full max-w-2xl glass-panel-card rounded-t-3xl sm:rounded-3xl border-t sm:border border-slate-700/80 shadow-2xl overflow-hidden bg-slate-950/98 max-h-[92vh] sm:max-h-[90vh] flex flex-col">
         
+        {/* Mobile Pull Bar Indicator */}
+        <div className="sm:hidden w-12 h-1.5 bg-slate-700 rounded-full mx-auto mt-2.5 mb-1" />
+
         {/* Modal Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/80">
-          <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-xl border ${
+        <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/80">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className={`p-2 sm:p-2.5 rounded-xl border shrink-0 ${
               hotspot.landCategory === 'hutan_lindung'
                 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                 : hotspot.landCategory.includes('sawit')
@@ -47,23 +50,23 @@ export const HotspotDetailModal: React.FC<HotspotDetailModalProps> = ({
                 ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
                 : 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
             }`}>
-              <ShieldAlert className="w-5 h-5" />
+              <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-extrabold text-base text-slate-100 font-mono">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-extrabold text-sm sm:text-base text-slate-100 font-mono truncate">
                   {hotspot.id}
                 </h3>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                <span className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-bold ${
                   hotspot.confidenceLevel === 'high'
                     ? 'bg-red-500/20 text-red-400 border border-red-500/40'
                     : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
                 }`}>
-                  Confidence: {hotspot.confidence}%
+                  {hotspot.confidence}%
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
-                Lembar Analisis Investigasi Spasial & Legalitas Zonasi
+              <p className="text-[10px] sm:text-xs text-slate-400 truncate">
+                Investigasi Spasial & Legalitas Zonasi
               </p>
             </div>
           </div>
@@ -77,10 +80,10 @@ export const HotspotDetailModal: React.FC<HotspotDetailModalProps> = ({
         </div>
 
         {/* Modal Scrollable Content */}
-        <div className="p-5 overflow-y-auto space-y-4 text-xs">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 text-xs">
           
           {/* Spatial Status Banner */}
-          <div className={`p-4 rounded-2xl border ${
+          <div className={`p-3.5 sm:p-4 rounded-2xl border ${
             hotspot.landCategory === 'hutan_lindung'
               ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-100'
               : hotspot.landCategory === 'sawit_dalam'
@@ -93,33 +96,33 @@ export const HotspotDetailModal: React.FC<HotspotDetailModalProps> = ({
               ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-100'
               : 'bg-slate-900 border-slate-800 text-slate-200'
           }`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">
-                  Hasil Klasifikasi Spasial (Zonasi)
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider opacity-80">
+                  Klasifikasi Zonasi Lahan
                 </span>
-                <h4 className="text-sm font-extrabold mt-0.5 flex items-center gap-1.5">
-                  {hotspot.landCategory === 'hutan_lindung' && <TreePine className="w-4 h-4 text-emerald-400" />}
-                  {hotspot.landCategory.includes('sawit') && <Palmtree className="w-4 h-4 text-amber-400" />}
-                  {hotspot.landCategory === 'tambang' && <Pickaxe className="w-4 h-4 text-purple-400" />}
-                  {hotspot.landCategory === 'perkotaan' && <Building2 className="w-4 h-4 text-cyan-400" />}
-                  <span>{hotspot.landDetail.categoryName}</span>
+                <h4 className="text-xs sm:text-sm font-extrabold mt-0.5 flex items-center gap-1.5">
+                  {hotspot.landCategory === 'hutan_lindung' && <TreePine className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                  {hotspot.landCategory.includes('sawit') && <Palmtree className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                  {hotspot.landCategory === 'tambang' && <Pickaxe className="w-3.5 h-3.5 text-purple-400 shrink-0" />}
+                  {hotspot.landCategory === 'perkotaan' && <Building2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />}
+                  <span className="truncate">{hotspot.landDetail.categoryName}</span>
                 </h4>
-                <p className="font-semibold text-xs mt-1 text-slate-200">
+                <p className="font-semibold text-[11px] sm:text-xs mt-1 text-slate-200">
                   {hotspot.landDetail.specificAreaName}
                 </p>
               </div>
 
-              <div className="text-right">
-                <span className="text-[10px] opacity-75">Status Titik:</span>
-                <div className="font-mono font-bold text-xs mt-0.5">
+              <div className="text-right shrink-0">
+                <span className="text-[9px] opacity-75">Status:</span>
+                <div className="font-mono font-bold text-[10px] sm:text-xs mt-0.5">
                   {hotspot.landDetail.isInside ? (
-                    <span className="text-red-400 bg-red-950/60 px-2 py-0.5 rounded border border-red-500/30">
+                    <span className="text-red-400 bg-red-950/60 px-1.5 py-0.5 rounded border border-red-500/30">
                       DALAM POLIGON
                     </span>
                   ) : (
-                    <span className="text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/30">
-                      BUFFER: {hotspot.landDetail.distanceToBoundaryMeters} meter
+                    <span className="text-amber-300 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/30">
+                      BUFFER {hotspot.landDetail.distanceToBoundaryMeters}m
                     </span>
                   )}
                 </div>
@@ -127,25 +130,25 @@ export const HotspotDetailModal: React.FC<HotspotDetailModalProps> = ({
             </div>
 
             {/* Legal Liability Note */}
-            <div className="mt-3 pt-2.5 border-t border-white/10 text-[11px] leading-relaxed">
-              <div className="flex items-center gap-1.5 font-bold mb-1">
-                <Scale className="w-3.5 h-3.5" />
-                <span>Analisis Tanggung Jawab Hukum & Regulasi:</span>
+            <div className="mt-2.5 pt-2 border-t border-white/10 text-[10px] sm:text-[11px] leading-relaxed">
+              <div className="flex items-center gap-1 font-bold mb-0.5">
+                <Scale className="w-3 h-3" />
+                <span>Analisis Regulasi Lingkungan:</span>
               </div>
               <p className="opacity-95">{hotspot.landDetail.legalNote}</p>
             </div>
           </div>
 
           {/* Grid Information Details */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             
             {/* Lokasi Administratif */}
-            <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-2">
-              <div className="flex items-center gap-1.5 font-bold text-slate-200">
+            <div className="p-3 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-1.5">
+              <div className="flex items-center gap-1.5 font-bold text-slate-200 text-[11px]">
                 <MapPin className="w-3.5 h-3.5 text-orange-400" />
                 <span>Wilayah Administratif</span>
               </div>
-              <div className="space-y-1 text-slate-300 text-[11px]">
+              <div className="space-y-1 text-slate-300 text-[10px] sm:text-[11px]">
                 <div className="flex justify-between">
                   <span className="text-slate-400">Provinsi:</span>
                   <span className="font-semibold">{hotspot.province}</span>
@@ -159,31 +162,31 @@ export const HotspotDetailModal: React.FC<HotspotDetailModalProps> = ({
                   <span className="font-semibold">{hotspot.subdistrict}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Koordinat Presisi:</span>
-                  <span className="font-mono text-[10px] text-slate-200">
-                    {hotspot.latitude.toFixed(5)}, {hotspot.longitude.toFixed(5)}
+                  <span className="text-slate-400">Koordinat:</span>
+                  <span className="font-mono text-[9px] text-slate-200">
+                    {hotspot.latitude.toFixed(4)}, {hotspot.longitude.toFixed(4)}
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Parameter Satelit */}
-            <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-2">
-              <div className="flex items-center gap-1.5 font-bold text-slate-200">
+            <div className="p-3 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-1.5">
+              <div className="flex items-center gap-1.5 font-bold text-slate-200 text-[11px]">
                 <Zap className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Telemetri & Sensor Satelit</span>
+                <span>Telemetri Sensor Satelit</span>
               </div>
-              <div className="space-y-1 text-slate-300 text-[11px]">
+              <div className="space-y-1 text-slate-300 text-[10px] sm:text-[11px]">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Sensor Satelit:</span>
+                  <span className="text-slate-400">Satelit:</span>
                   <span className="font-mono font-semibold text-slate-200">{hotspot.satellite}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Fire Radiative Power (FRP):</span>
+                  <span className="text-slate-400">Daya Radiasi (FRP):</span>
                   <span className="font-mono font-bold text-orange-400">{hotspot.frp} MW</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Suhu Kecerahan (Brightness):</span>
+                  <span className="text-slate-400">Suhu Kecerahan:</span>
                   <span className="font-mono font-semibold">{hotspot.brightness} K</span>
                 </div>
                 <div className="flex justify-between">
@@ -195,56 +198,56 @@ export const HotspotDetailModal: React.FC<HotspotDetailModalProps> = ({
 
           </div>
 
-          {/* Pemegang Izin / Pengelola */}
+          {/* Pemegang Izin */}
           {hotspot.landDetail.concessionHolder && (
-            <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800">
-              <div className="flex items-center gap-1.5 font-bold text-slate-200 mb-2">
+            <div className="p-3 rounded-2xl bg-slate-900/70 border border-slate-800">
+              <div className="flex items-center gap-1.5 font-bold text-slate-200 mb-1 text-[11px]">
                 <FileCheck2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Identitas Pemegang Izin Konsesi</span>
+                <span>Identitas Pemegang Izin</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
+              <div className="grid grid-cols-2 gap-2 text-[10px] sm:text-[11px] text-slate-300">
                 <div>
-                  <span className="text-slate-400 block">Nama Badan Usaha / Lembaga:</span>
-                  <span className="font-semibold text-slate-100">{hotspot.landDetail.concessionHolder}</span>
+                  <span className="text-slate-400 block">Badan Usaha:</span>
+                  <span className="font-semibold text-slate-100 truncate block">{hotspot.landDetail.concessionHolder}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block">Jenis Izin / Dokumen:</span>
-                  <span className="font-semibold text-slate-100">{hotspot.landDetail.permitType || 'Izin Operasi'}</span>
+                  <span className="text-slate-400 block">Jenis Izin:</span>
+                  <span className="font-semibold text-slate-100 truncate block">{hotspot.landDetail.permitType || 'Izin Operasi'}</span>
                 </div>
               </div>
             </div>
           )}
 
           {/* External Links */}
-          <div className="flex flex-wrap items-center gap-2 pt-2">
+          <div className="grid grid-cols-2 gap-2 pt-1">
             <a
               href={googleMapsUrl}
               target="_blank"
               rel="noreferrer"
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-semibold transition"
+              className="flex items-center justify-center gap-1 py-2 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-semibold text-[11px] transition text-center"
             >
-              <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Buka di Google Maps</span>
+              <ExternalLink className="w-3 h-3 text-cyan-400 shrink-0" />
+              <span>Google Maps</span>
             </a>
 
             <a
               href={sipongiUrl}
               target="_blank"
               rel="noreferrer"
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-semibold transition"
+              className="flex items-center justify-center gap-1 py-2 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-semibold text-[11px] transition text-center"
             >
-              <ExternalLink className="w-3.5 h-3.5 text-orange-400" />
-              <span>Cek Portal Sipongi+</span>
+              <ExternalLink className="w-3 h-3 text-orange-400 shrink-0" />
+              <span>Portal Sipongi+</span>
             </a>
           </div>
 
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between gap-3">
+        <div className="p-3 sm:p-4 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium transition"
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium text-xs transition"
           >
             Tutup
           </button>
@@ -254,10 +257,10 @@ export const HotspotDetailModal: React.FC<HotspotDetailModalProps> = ({
               onZoomToMap(hotspot);
               onClose();
             }}
-            className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-semibold rounded-xl shadow-md shadow-orange-500/20 flex items-center gap-1.5 transition"
+            className="flex-1 sm:flex-initial px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-semibold rounded-xl shadow-md flex items-center justify-center gap-1.5 text-xs transition"
           >
-            <Compass className="w-4 h-4" />
-            <span>Arahkan ke Peta GIS</span>
+            <Compass className="w-3.5 h-3.5" />
+            <span>Lihat di Peta GIS</span>
           </button>
         </div>
 

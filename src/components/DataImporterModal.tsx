@@ -40,7 +40,6 @@ export const DataImporterModal: React.FC<DataImporterModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Preset sample testing coordinates
   const loadPreset = (presetType: 'hutan' | 'sawit' | 'tambang' | 'kota') => {
     if (presetType === 'hutan') {
       setLat('-0.1800');
@@ -169,7 +168,7 @@ export const DataImporterModal: React.FC<DataImporterModalProps> = ({
       }
 
       if (newHotspots.length === 0) {
-        setBatchError('Tidak ada baris data valid yang terdeteksi (Format: lat, lng, confidence, frp, provinsi).');
+        setBatchError('Format tidak valid. Gunakan format: lat, lng, confidence, frp, provinsi');
         return;
       }
 
@@ -182,21 +181,24 @@ export const DataImporterModal: React.FC<DataImporterModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl glass-panel-card rounded-3xl border border-slate-700/80 shadow-2xl overflow-hidden bg-slate-950/95 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative w-full max-w-xl glass-panel-card rounded-t-3xl sm:rounded-3xl border-t sm:border border-slate-700/80 shadow-2xl overflow-hidden bg-slate-950/98 max-h-[92vh] sm:max-h-[90vh] flex flex-col">
         
+        {/* Mobile pull indicator */}
+        <div className="sm:hidden w-12 h-1.5 bg-slate-700 rounded-full mx-auto mt-2.5 mb-1" />
+
         {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/80">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
-              <Upload className="w-5 h-5" />
+        <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/80">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="p-2 sm:p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 shrink-0">
+              <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h3 className="font-extrabold text-base text-slate-100">
-                Uji Coba & Impor Data Titik Api
+              <h3 className="font-extrabold text-sm sm:text-base text-slate-100">
+                Uji Coba & Impor Titik Api
               </h3>
-              <p className="text-xs text-slate-400">
-                Analisis spasial zonasi otomatis untuk titik baru atau dataset CSV.
+              <p className="text-[10px] sm:text-xs text-slate-400">
+                Klasifikasi zonasi spasial otomatis instant.
               </p>
             </div>
           </div>
@@ -210,103 +212,103 @@ export const DataImporterModal: React.FC<DataImporterModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-800 bg-slate-900/40 px-5 pt-3">
+        <div className="flex border-b border-slate-800 bg-slate-900/40 px-4 pt-2">
           <button
             onClick={() => setTab('single')}
-            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition ${
+            className={`pb-2 px-3 text-xs font-semibold border-b-2 transition ${
               tab === 'single'
                 ? 'border-orange-500 text-orange-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            Uji Koordinat Tunggal (Instant Classifier)
+            Uji Titik Tunggal
           </button>
           <button
             onClick={() => setTab('batch')}
-            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition ${
+            className={`pb-2 px-3 text-xs font-semibold border-b-2 transition ${
               tab === 'batch'
                 ? 'border-orange-500 text-orange-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            Impor CSV / Bulk Data
+            Impor CSV / Bulk
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-5 overflow-y-auto space-y-4 text-xs">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 text-xs">
           
           {tab === 'single' ? (
-            <form onSubmit={handleSingleSubmit} className="space-y-4">
+            <form onSubmit={handleSingleSubmit} className="space-y-3">
               
-              {/* Quick Presets */}
-              <div className="p-3 rounded-2xl bg-slate-900/60 border border-slate-800">
-                <span className="text-[11px] font-bold text-slate-400 block mb-2">
-                  Uji Coba Preset Contoh Lokasi:
+              {/* Presets */}
+              <div className="p-2.5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 block mb-1.5">
+                  Preset Lokasi Uji Coba:
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
                     onClick={() => loadPreset('hutan')}
-                    className="px-2 py-1.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-semibold text-left transition"
+                    className="p-1.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-semibold text-left truncate"
                   >
                     🌲 TN Tesso Nilo
                   </button>
                   <button
                     type="button"
                     onClick={() => loadPreset('sawit')}
-                    className="px-2 py-1.5 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-500/30 rounded-lg text-[10px] font-semibold text-left transition"
+                    className="p-1.5 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-500/30 rounded-lg text-[10px] font-semibold text-left truncate"
                   >
                     🌴 Sawit Pelalawan
                   </button>
                   <button
                     type="button"
                     onClick={() => loadPreset('tambang')}
-                    className="px-2 py-1.5 bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 border border-purple-500/30 rounded-lg text-[10px] font-semibold text-left transition"
+                    className="p-1.5 bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 border border-purple-500/30 rounded-lg text-[10px] font-semibold text-left truncate"
                   >
                     ⛏️ Tambang Sangatta
                   </button>
                   <button
                     type="button"
                     onClick={() => loadPreset('kota')}
-                    className="px-2 py-1.5 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-500/30 rounded-lg text-[10px] font-semibold text-left transition"
+                    className="p-1.5 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-500/30 rounded-lg text-[10px] font-semibold text-left truncate"
                   >
-                    🏙️ Kota Palangka Raya
+                    🏙️ Palangka Raya
                   </button>
                 </div>
               </div>
 
               {/* Coordinate Inputs */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Latitude</label>
+                  <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Latitude</label>
                   <input
                     type="text"
                     value={lat}
                     onChange={(e) => setLat(e.target.value)}
                     required
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 font-mono text-xs focus:ring-1 focus:ring-orange-500 focus:outline-none"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-100 font-mono text-xs focus:ring-1 focus:ring-orange-500 focus:outline-none"
                     placeholder="-0.1800"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Longitude</label>
+                  <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Longitude</label>
                   <input
                     type="text"
                     value={lng}
                     onChange={(e) => setLng(e.target.value)}
                     required
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 font-mono text-xs focus:ring-1 focus:ring-orange-500 focus:outline-none"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-100 font-mono text-xs focus:ring-1 focus:ring-orange-500 focus:outline-none"
                     placeholder="101.6500"
                   />
                 </div>
               </div>
 
               {/* Confidence & FRP */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">
-                    Confidence (%): <span className="text-orange-400">{confidence}%</span>
+                  <label className="block text-slate-300 font-semibold mb-1 text-[11px]">
+                    Confidence: <span className="text-orange-400">{confidence}%</span>
                   </label>
                   <input
                     type="range"
@@ -318,35 +320,35 @@ export const DataImporterModal: React.FC<DataImporterModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Daya Radiasi (FRP MW)</label>
+                  <label className="block text-slate-300 font-semibold mb-1 text-[11px]">FRP (MW)</label>
                   <input
                     type="number"
                     step="0.1"
                     value={frp}
                     onChange={(e) => setFrp(parseFloat(e.target.value) || 0)}
                     required
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 font-mono text-xs focus:ring-1 focus:ring-orange-500 focus:outline-none"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-100 font-mono text-xs focus:ring-1 focus:ring-orange-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               {/* Administrative & Satellite */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Provinsi</label>
+                  <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Provinsi</label>
                   <input
                     type="text"
                     value={province}
                     onChange={(e) => setProvince(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 text-xs focus:ring-1 focus:ring-orange-500 focus:outline-none"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-100 text-xs focus:ring-1 focus:ring-orange-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Satelit</label>
+                  <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Satelit</label>
                   <select
                     value={satellite}
                     onChange={(e) => setSatellite(e.target.value as SatelliteSensor)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 text-xs focus:ring-1 focus:ring-orange-500 focus:outline-none"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-100 text-xs focus:ring-1 focus:ring-orange-500 focus:outline-none"
                   >
                     <option value="VIIRS / SNPP">VIIRS / SNPP</option>
                     <option value="VIIRS / NOAA-20">VIIRS / NOAA-20</option>
@@ -358,29 +360,29 @@ export const DataImporterModal: React.FC<DataImporterModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 transition"
+                className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 transition"
               >
                 <Plus className="w-4 h-4" />
                 <span>Analisis & Tambahkan ke Dashboard</span>
               </button>
             </form>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">
-                  Tempel Baris CSV (Format: latitude, longitude, confidence, frp, provinsi, kabupaten)
+                <label className="block text-slate-300 font-semibold mb-1 text-[11px]">
+                  Tempel CSV (Format: lat, lng, confidence, frp, provinsi, kabupaten)
                 </label>
                 <textarea
-                  rows={6}
+                  rows={5}
                   value={rawText}
                   onChange={(e) => setRawText(e.target.value)}
-                  placeholder={`-0.1800, 101.6500, 94, 78.4, Riau, Pelalawan\n-2.5500, 113.8500, 99, 184.5, Kalimantan Tengah, Pulang Pisau\n0.3200, 117.6200, 97, 165.2, Kalimantan Timur, Kutai Timur`}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-100 font-mono text-xs focus:ring-1 focus:ring-orange-500 focus:outline-none leading-relaxed"
+                  placeholder={`-0.1800, 101.6500, 94, 78.4, Riau, Pelalawan\n-2.5500, 113.8500, 99, 184.5, Kalimantan Tengah, Pulang Pisau`}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-slate-100 font-mono text-xs focus:ring-1 focus:ring-orange-500 focus:outline-none"
                 />
               </div>
 
               {batchError && (
-                <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/30 text-red-300 flex items-center gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-red-950/60 border border-red-500/30 text-red-300 flex items-center gap-1.5 text-xs">
                   <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
                   <span>{batchError}</span>
                 </div>
@@ -389,7 +391,7 @@ export const DataImporterModal: React.FC<DataImporterModalProps> = ({
               <button
                 type="button"
                 onClick={handleBatchSubmit}
-                className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 transition"
+                className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 transition"
               >
                 <Upload className="w-4 h-4" />
                 <span>Proses & Klasifikasikan Dataset</span>
