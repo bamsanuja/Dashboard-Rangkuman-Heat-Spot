@@ -1,144 +1,131 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   den-deck palette, dark ground.
+   espresso is the background, cream is the type, amber carries emphasis.
+   sienna / rose / camel / olive are the ordered data-series colours.
+   ========================================================================== */
+@theme {
+  --color-espresso: #2d2318;
+  --color-espresso-raised: #392e20;
+  --color-espresso-sunken: #241c13;
+  --color-espresso-line: #4d3f2d;
+  --color-cream: #fdf7f2;
+  --color-cream-muted: #cbbba6;
+  --color-cream-faint: #93826d;
+  --color-amber-den: #f0a22e;
+  --color-sienna: #a5644e;
+  --color-rose-den: #b58b80;
+  --color-camel: #c3986d;
+  --color-olive: #a19574;
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
 @layer base {
   * {
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--color-espresso-line);
+  }
+  html, body {
+    background-color: var(--color-espresso);
+    color: var(--color-cream);
   }
   body {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
   }
   code, pre, .font-mono {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
+  }
+  ::selection {
+    background: rgba(240, 162, 46, 0.28);
+    color: var(--color-cream);
   }
 }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: var(--color-espresso-sunken); }
+::-webkit-scrollbar-thumb { background: #5c4a35; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-camel); }
+
+/* Panels. Flat and warm, no glass, no neon. */
+.panel {
+  background: var(--color-espresso-raised);
+  border: 1px solid var(--color-espresso-line);
+  border-radius: 14px;
+}
+.panel-sunken {
+  background: var(--color-espresso-sunken);
+  border: 1px solid var(--color-espresso-line);
+  border-radius: 12px;
 }
 
-::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+/* A standing notice the app cannot run without. */
+.provenance-bar {
+  background: linear-gradient(90deg, rgba(240, 162, 46, 0.14), rgba(165, 100, 78, 0.10));
+  border-bottom: 1px solid rgba(240, 162, 46, 0.35);
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.4);
-  border-radius: 9999px;
-}
+.rule-amber { border-left: 3px solid var(--color-amber-den); }
+.rule-sienna { border-left: 3px solid var(--color-sienna); }
+.rule-olive { border-left: 3px solid var(--color-olive); }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.7);
-}
-
-/* Glassmorphism utilities */
-.glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.glass-panel-subtle {
-  background: rgba(30, 41, 59, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.glass-panel-card {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* Glowing Pulse & Neon Badges */
-@keyframes pulse-glow {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-    filter: drop-shadow(0 0 8px currentColor);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(1.08);
-    filter: drop-shadow(0 0 16px currentColor);
-  }
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes radar-scan {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-.radar-sweep {
-  animation: radar-scan 4s linear infinite;
-}
-
-/* Leaflet Custom Marker & Popup styling */
-.leaflet-popup-content-wrapper {
-  background: rgba(15, 23, 42, 0.95) !important;
-  color: #f1f5f9 !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  backdrop-filter: blur(12px) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
-  padding: 0 !important;
-}
-
-.leaflet-popup-content {
-  margin: 0 !important;
-  line-height: 1.5 !important;
-}
-
-.leaflet-popup-tip {
-  background: rgba(15, 23, 42, 0.95) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-}
-
+/* Leaflet, recoloured onto the espresso ground. */
 .leaflet-container {
-  font-family: 'Plus Jakarta Sans', sans-serif !important;
-  background-color: #0b1120 !important;
+  font-family: var(--font-sans) !important;
+  background-color: var(--color-espresso-sunken) !important;
 }
-
-/* Custom Hotspot Pulsing Icon marker in Leaflet */
-.custom-hotspot-pin {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--color-espresso-raised) !important;
+  color: var(--color-cream) !important;
+  border: 1px solid var(--color-espresso-line) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 18px 30px -12px rgba(0, 0, 0, 0.7) !important;
 }
+.leaflet-popup-content { margin: 0 !important; line-height: 1.5 !important; }
 
-.custom-hotspot-pin .pin-core {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 10px currentColor;
-  z-index: 2;
+/* Tooltip Leaflet. Bawaannya berlatar putih dengan white-space: nowrap, jadi
+   teks panjang keluar dari kotaknya dan warnanya jadi krem di atas putih.
+   Ketiganya diperbaiki di sini, bukan di tiap komponen. */
+.leaflet-tooltip {
+  background: var(--color-espresso-raised) !important;
+  color: var(--color-cream) !important;
+  border: 1px solid var(--color-espresso-line) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 14px 26px -12px rgba(0, 0, 0, 0.75) !important;
+  padding: 0 !important;
+  max-width: 280px !important;
+  white-space: normal !important;
+  font-family: var(--font-sans) !important;
 }
-
-.custom-hotspot-pin .pin-wave {
-  position: absolute;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  opacity: 0.75;
-  animation: pin-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
-  z-index: 1;
+.leaflet-tooltip-top::before { border-top-color: var(--color-espresso-line) !important; }
+.leaflet-tooltip-bottom::before { border-bottom-color: var(--color-espresso-line) !important; }
+.leaflet-tooltip-left::before { border-left-color: var(--color-espresso-line) !important; }
+.leaflet-tooltip-right::before { border-right-color: var(--color-espresso-line) !important; }
+.leaflet-bar a {
+  background: var(--color-espresso-raised) !important;
+  color: var(--color-cream) !important;
+  border-color: var(--color-espresso-line) !important;
 }
+.leaflet-bar a:hover { background: var(--color-espresso-line) !important; }
+.leaflet-control-attribution {
+  background: rgba(36, 28, 19, 0.9) !important;
+  color: var(--color-cream-faint) !important;
+}
+.leaflet-control-attribution a { color: var(--color-camel) !important; }
 
-@keyframes pin-ping {
-  75%, 100% {
-    transform: scale(2.2);
-    opacity: 0;
-  }
+/* Hotspot marker: colour carries land cover, shape carries confidence. */
+.hotspot-shape {
+  background: none;
+  border: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+  cursor: pointer;
+}
+.hotspot-shape:hover { filter: drop-shadow(0 0 5px var(--color-amber-den)); }
+
+.imagery-swatch {
+  image-rendering: pixelated;
+  border-radius: 10px;
+  border: 1px solid var(--color-espresso-line);
 }

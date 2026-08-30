@@ -1,434 +1,410 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  MapContainer, 
-  TileLayer, 
-  Polygon, 
-  Popup, 
-  CircleMarker, 
-  useMap 
-} from 'react-leaflet';
-import { 
-  Layers, 
-  Eye, 
-  EyeOff, 
-  Flame, 
-  TreePine, 
-  Palmtree, 
-  Pickaxe, 
-  Building2, 
-  ShieldAlert,
-  Info,
-  ChevronDown,
-  ChevronUp
-} from 'lucide-react';
-import { CONCESSION_POLYGONS } from '../data/concessionsData';
-import type { Hotspot } from '../types';
+import { useEffect, useMemo, useState } from 'react';
+import L from 'leaflet';
+import { MapContainer, TileLayer, Circle, CircleMarker, Marker, Polygon, Tooltip, LayersControl, useMap, useMapEvent } from 'react-leaflet';
+import type { ConfidenceLevel, FireCluster, Hotspot, IndicativeArea, LandIndication } from '../types';
+import { INDICATIVE_AREAS, AREA_LAYER_DISCLAIMER } from '../data/protectedAreas';
+import { confidenceLabel, CONFIDENCE_WORD } from '../utils/sensors';
+import { INDICATION_COLOR, INDICATION_SHORT } from '../utils/imageryIndication';
+import { FDRS_BAND_COLOR, FDRS_BAND_LABEL } from '../utils/fdrs';
 
-interface GisMapProps {
-  hotspots: Hotspot[];
-  selectedHotspot: Hotspot | null;
-  onSelectHotspot: (hotspot: Hotspot) => void;
-  onOpenDetails: (hotspot: Hotspot) => void;
+/**
+ * Two variables, two visual channels. Colour carries what the imagery shows,
+ * shape carries how confident the satellite product is. Keeping them on
+ * separate channels means a reader can answer either question at a glance
+ * without the two interfering.
+ *
+ * Circle for high, square for nominal, triangle for low. Every shape is drawn
+ * with a cream halo under a dark stroke so it stays legible over bright cloud
+ * and over dark canopy alike, which a single-colour outline does not.
+ */
+const SHAPE_SIZE: Record<ConfidenceLevel, number> = { high: 16, nominal: 14, low: 13 };
+
+function shapePath(level: ConfidenceLevel, s: number): string {
+  const c = s / 2;
+  const r = s / 2 - 2.5;
+  if (level === 'high') {
+    return `<circle cx="${c}" cy="${c}" r="${r}" />`;
+  }
+  if (level === 'nominal') {
+    return `<rect x="${c - r}" y="${c - r}" width="${r * 2}" height="${r * 2}" rx="1.5" />`;
+  }
+  const h = r * 1.15;
+  return `<polygon points="${c},${c - h} ${c + h},${c + h * 0.75} ${c - h},${c + h * 0.75}" />`;
 }
 
-function MapFlyController({ targetHotspot }: { targetHotspot: Hotspot | null }) {
+const iconCache = new Map<string, L.DivIcon>();
+
+function markerIcon(level: ConfidenceLevel, indication: LandIndication): L.DivIcon {
+  const key = `${level}|${indication}`;
+  const cached = iconCache.get(key);
+  if (cached) return cached;
+
+  const size = SHAPE_SIZE[level];
+  const fill = INDICATION_COLOR[indication];
+  const path = shapePath(level, size);
+  const html =
+    `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">` +
+    `<g fill="none" stroke="#fdf7f2" stroke-width="3.2" stroke-linejoin="round">${path}</g>` +
+    `<g fill="${fill}" stroke="#2d2318" stroke-width="1.1" stroke-linejoin="round">${path}</g>` +
+    `</svg>`;
+
+  const icon = L.divIcon({
+    html,
+    className: 'hotspot-shape',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+  iconCache.set(key, icon);
+  return icon;
+}
+
+function Recenter({ target }: { target: [number, number] | null }) {
   const map = useMap();
   useEffect(() => {
-    if (targetHotspot) {
-      map.flyTo([targetHotspot.latitude, targetHotspot.longitude], 12, {
-        duration: 1.5
-      });
-    }
-  }, [targetHotspot, map]);
+    if (target) map.flyTo(target, 15, { duration: 0.8 });
+  }, [target, map]);
   return null;
 }
 
-export const GisMap: React.FC<GisMapProps> = ({
+function FitToData({ hotspots }: { hotspots: Hotspot[] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!hotspots.length) return;
+    // invalidateSize first. The map mounts inside a tab that is laid out in the
+    // same frame, so without this Leaflet fits to a stale container size and
+    // leaves the view panned far away from every marker.
+    const id = window.setTimeout(() => {
+      map.invalidateSize();
+      const lats = hotspots.map((h) => h.latitude);
+      const lngs = hotspots.map((h) => h.longitude);
+      map.fitBounds(
+        [
+          [Math.min(...lats), Math.min(...lngs)],
+          [Math.max(...lats), Math.max(...lngs)],
+        ],
+        { padding: [50, 50], maxZoom: 12 },
+      );
+    }, 200);
+    return () => window.clearTimeout(id);
+    // Only refit when the size of the dataset changes, not on every filter tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hotspots.length]);
+  return null;
+}
+
+/**
+ * Tracks zoom and viewport. A national SiPongi+ export runs to five figures, and
+ * that many DOM markers locks the browser, so only what is on screen is drawn
+ * and the shape encoding gives way to plain canvas dots past a threshold.
+ */
+function ViewWatch({ onView }: { onView: (z: number, b: L.LatLngBounds) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    onView(map.getZoom(), map.getBounds());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useMapEvent('moveend', (e) => onView(e.target.getZoom(), e.target.getBounds()));
+  return null;
+}
+
+/** Above this many points in view, drop to canvas dots and say so. */
+const SHAPE_CAP = 1200;
+
+const LEGEND: LandIndication[] = [
+  'plantation_pattern',
+  'closed_canopy',
+  'open_vegetation',
+  'cleared_or_excavated',
+  'settlement',
+  'cloud_obscured',
+  'not_analysed',
+];
+
+const CONFIDENCE_LEVELS: ConfidenceLevel[] = ['high', 'nominal', 'low'];
+
+export default function GisMap({
   hotspots,
-  selectedHotspot,
-  onSelectHotspot,
-  onOpenDetails
-}) => {
-  const [baseMap, setBaseMap] = useState<'dark' | 'satellite' | 'streets'>('dark');
-  const [showHutanLindung, setShowHutanLindung] = useState<boolean>(true);
-  const [showSawit, setShowSawit] = useState<boolean>(true);
-  const [showTambang, setShowTambang] = useState<boolean>(true);
-  const [showPerkotaan, setShowPerkotaan] = useState<boolean>(true);
-  const [viewMode, setViewMode] = useState<'pins' | 'heat'>('pins');
-  const [isLayerPanelOpenMobile, setIsLayerPanelOpenMobile] = useState<boolean>(false);
+  clusters = [],
+  clusterView = false,
+  onToggleClusterView,
+  onSelect,
+  onSelectCluster,
+  flyTo = null,
+  areas = INDICATIVE_AREAS,
+}: {
+  hotspots: Hotspot[];
+  clusters?: FireCluster[];
+  clusterView?: boolean;
+  onToggleClusterView?: (v: boolean) => void;
+  onSelect: (h: Hotspot) => void;
+  onSelectCluster?: (c: FireCluster) => void;
+  flyTo?: [number, number] | null;
+  areas?: IndicativeArea[];
+}) {
+  const [zoom, setZoom] = useState(5);
+  const [bounds, setBounds] = useState<L.LatLngBounds | null>(null);
+  const [ready, setReady] = useState(false);
+  const polygons = useMemo(
+    () => areas.map((a) => ({ area: a, latlngs: a.coordinates[0].map(([lng, lat]) => [lat, lng] as [number, number]) })),
+    [areas],
+  );
+  const visible = useMemo(() => {
+    if (!bounds) return hotspots.slice(0, SHAPE_CAP);
+    return hotspots.filter((h) => bounds.contains([h.latitude, h.longitude]));
+  }, [hotspots, bounds]);
 
-  const baseTiles = {
-    dark: {
-      url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-      attribution: '&copy; CartoDB &copy; OpenStreetMap'
-    },
-    satellite: {
-      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      attribution: '&copy; Esri World Imagery'
-    },
-    streets: {
-      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      attribution: '&copy; OpenStreetMap contributors'
-    }
-  };
+  const visibleClusters = useMemo(() => {
+    if (!bounds) return clusters.slice(0, SHAPE_CAP);
+    return clusters.filter((c) => bounds.contains([c.latitude, c.longitude]));
+  }, [clusters, bounds]);
 
-  const getHotspotColor = (cat: Hotspot['landCategory']) => {
-    switch (cat) {
-      case 'hutan_lindung': return '#10b981';
-      case 'sawit_dalam': return '#f59e0b';
-      case 'sawit_sebelah': return '#f97316';
-      case 'tambang': return '#a855f7';
-      case 'perkotaan': return '#06b6d4';
-      default: return '#94a3b8';
-    }
-  };
-
-  const getHotspotFill = (cat: Hotspot['landCategory']) => {
-    switch (cat) {
-      case 'hutan_lindung': return '#059669';
-      case 'sawit_dalam': return '#d97706';
-      case 'sawit_sebelah': return '#ea580c';
-      case 'tambang': return '#9333ea';
-      case 'perkotaan': return '#0891b2';
-      default: return '#64748b';
-    }
-  };
+  const dense = !clusterView && visible.length > SHAPE_CAP;
+  const showFootprints = zoom >= 13 && !dense && !clusterView;
 
   return (
-    <div className="relative w-full h-[440px] sm:h-[540px] lg:h-[680px] rounded-2xl sm:rounded-3xl overflow-hidden glass-panel border border-slate-800 shadow-2xl">
-      
-      {/* Map Container */}
+    <div className="relative panel overflow-hidden" style={{ height: '68vh', minHeight: 420 }}>
       <MapContainer
-        center={[-0.7893, 113.9213]}
+        center={[-1.5, 113]}
         zoom={5}
-        minZoom={4}
-        maxZoom={18}
-        className="w-full h-full z-10"
-        scrollWheelZoom={true}
+        className="w-full h-full"
+        preferCanvas
+        whenReady={() => setReady(true)}
       >
-        <TileLayer
-          url={baseTiles[baseMap].url}
-          attribution={baseTiles[baseMap].attribution}
-        />
+        <LayersControl position="topright">
+          <LayersControl.BaseLayer checked name="Citra satelit">
+            <TileLayer
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              attribution="Esri World Imagery"
+              maxZoom={18}
+            />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Peta gelap">
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; OpenStreetMap, &copy; CARTO'
+            />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="OpenStreetMap">
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+          </LayersControl.BaseLayer>
+        </LayersControl>
 
-        <MapFlyController targetHotspot={selectedHotspot} />
+        {polygons.map(({ area, latlngs }) => (
+          <Polygon
+            key={area.id}
+            positions={latlngs}
+            pathOptions={{ color: '#fdf7f2', weight: 1.5, fillColor: '#a19574', fillOpacity: 0.08, dashArray: '6 5' }}
+          >
+            <Tooltip sticky>
+              <div className="p-2 max-w-[260px]">
+                <p className="font-semibold text-cream text-[12px]">{area.name}</p>
+                <p className="text-[11px] text-cream-muted mt-0.5">{area.managingUnit}</p>
+                <p className="text-[11px] text-cream-faint mt-1 font-mono">
+                  {area.officialAreaHectares.toLocaleString('id-ID')} ha
+                </p>
+                <p className="text-[10px] text-cream-faint mt-1 leading-snug">{area.geometryCaveat}</p>
+              </div>
+            </Tooltip>
+          </Polygon>
+        ))}
 
-        {/* 1. Hutan Lindung Polygons */}
-        {showHutanLindung && CONCESSION_POLYGONS.filter(p => p.category === 'hutan_lindung').map((poly) => {
-          const latlngs = poly.coordinates[0].map(([lng, lat]) => [lat, lng] as [number, number]);
-          return (
-            <Polygon
-              key={poly.id}
-              positions={latlngs}
-              pathOptions={{
-                color: poly.color,
-                fillColor: poly.fillColor,
-                fillOpacity: 0.25,
-                weight: 2,
-                dashArray: '4, 4'
-              }}
-            >
-              <Popup>
-                <div className="p-2.5 text-xs">
-                  <div className="flex items-center gap-1 text-emerald-400 font-bold mb-1">
-                    <TreePine className="w-3.5 h-3.5" />
-                    <span>{poly.name}</span>
-                  </div>
-                  <div className="text-slate-300 space-y-0.5 text-[11px]">
-                    <p><strong>Pengelola:</strong> {poly.holder}</p>
-                    <p><strong>Luas:</strong> {poly.areaHectares.toLocaleString()} Ha</p>
-                  </div>
-                </div>
-              </Popup>
-            </Polygon>
-          );
-        })}
-
-        {/* 2. Konsesi Sawit Polygons */}
-        {showSawit && CONCESSION_POLYGONS.filter(p => p.category === 'sawit').map((poly) => {
-          const latlngs = poly.coordinates[0].map(([lng, lat]) => [lat, lng] as [number, number]);
-          return (
-            <Polygon
-              key={poly.id}
-              positions={latlngs}
-              pathOptions={{
-                color: poly.color,
-                fillColor: poly.fillColor,
-                fillOpacity: 0.28,
-                weight: 2
-              }}
-            >
-              <Popup>
-                <div className="p-2.5 text-xs">
-                  <div className="flex items-center gap-1 text-amber-400 font-bold mb-1">
-                    <Palmtree className="w-3.5 h-3.5" />
-                    <span>{poly.name}</span>
-                  </div>
-                  <div className="text-slate-300 space-y-0.5 text-[11px]">
-                    <p><strong>Perusahaan:</strong> {poly.holder}</p>
-                    <p><strong>Luas:</strong> {poly.areaHectares.toLocaleString()} Ha</p>
-                  </div>
-                </div>
-              </Popup>
-            </Polygon>
-          );
-        })}
-
-        {/* 3. Konsesi Tambang Polygons */}
-        {showTambang && CONCESSION_POLYGONS.filter(p => p.category === 'tambang').map((poly) => {
-          const latlngs = poly.coordinates[0].map(([lng, lat]) => [lat, lng] as [number, number]);
-          return (
-            <Polygon
-              key={poly.id}
-              positions={latlngs}
-              pathOptions={{
-                color: poly.color,
-                fillColor: poly.fillColor,
-                fillOpacity: 0.28,
-                weight: 2
-              }}
-            >
-              <Popup>
-                <div className="p-2.5 text-xs">
-                  <div className="flex items-center gap-1 text-purple-400 font-bold mb-1">
-                    <Pickaxe className="w-3.5 h-3.5" />
-                    <span>{poly.name}</span>
-                  </div>
-                  <div className="text-slate-300 space-y-0.5 text-[11px]">
-                    <p><strong>Pemegang IUP:</strong> {poly.holder}</p>
-                    <p><strong>Luas:</strong> {poly.areaHectares.toLocaleString()} Ha</p>
-                  </div>
-                </div>
-              </Popup>
-            </Polygon>
-          );
-        })}
-
-        {/* 4. Kawasan Perkotaan Polygons */}
-        {showPerkotaan && CONCESSION_POLYGONS.filter(p => p.category === 'perkotaan').map((poly) => {
-          const latlngs = poly.coordinates[0].map(([lng, lat]) => [lat, lng] as [number, number]);
-          return (
-            <Polygon
-              key={poly.id}
-              positions={latlngs}
-              pathOptions={{
-                color: poly.color,
-                fillColor: poly.fillColor,
-                fillOpacity: 0.22,
-                weight: 1.5,
-                dashArray: '2, 2'
-              }}
-            >
-              <Popup>
-                <div className="p-2.5 text-xs">
-                  <div className="flex items-center gap-1 text-cyan-400 font-bold mb-1">
-                    <Building2 className="w-3.5 h-3.5" />
-                    <span>{poly.name}</span>
-                  </div>
-                  <div className="text-slate-300 text-[11px]">
-                    <p>Kawasan Pemukiman Penduduk</p>
-                  </div>
-                </div>
-              </Popup>
-            </Polygon>
-          );
-        })}
-
-        {/* 5. Hotspots Layer */}
-        {hotspots.map((h) => {
-          const isSelected = selectedHotspot?.id === h.id;
-          const color = getHotspotColor(h.landCategory);
-          const fill = getHotspotFill(h.landCategory);
-          
-          const radius = viewMode === 'heat' 
-            ? Math.min(20, Math.max(10, h.frp / 7))
-            : isSelected ? 11 : Math.min(8, Math.max(5, h.confidence / 16));
-
-          const opacity = viewMode === 'heat' ? 0.35 : 0.9;
-          const fillOpacity = viewMode === 'heat' ? 0.6 : (h.confidence >= 80 ? 0.95 : 0.75);
-
-          return (
-            <CircleMarker
-              key={h.id}
+        {/* True sensor footprint, shown once the map is zoomed in far enough
+            that it is bigger than the marker and therefore honest. */}
+        {showFootprints &&
+          visible.map((h) => (
+            <Circle
+              key={`fp-${h.id}`}
               center={[h.latitude, h.longitude]}
-              radius={radius}
+              radius={h.footprintMeters / 2}
               pathOptions={{
-                color: isSelected ? '#ffffff' : color,
-                fillColor: fill,
-                fillOpacity: fillOpacity,
-                weight: isSelected ? 3 : (h.confidence >= 80 ? 2 : 1),
-                opacity: opacity
+                color: INDICATION_COLOR[h.imagery?.indication ?? 'not_analysed'],
+                weight: 1,
+                fillOpacity: 0.12,
+                dashArray: '3 3',
               }}
-              eventHandlers={{
-                click: () => onSelectHotspot(h)
+              interactive={false}
+            />
+          ))}
+
+        {/* Tampilan gugus: satu lingkaran per kejadian, luasnya sebanding dengan
+            akar jumlah deteksi, sehingga gugus 451 tidak menenggelamkan peta. */}
+        {clusterView &&
+          visibleClusters.map((c) => (
+            <CircleMarker
+              key={c.id}
+              center={[c.latitude, c.longitude]}
+              radius={Math.min(26, 3 + Math.sqrt(c.size) * 1.6)}
+              pathOptions={{
+                color: '#fdf7f2',
+                weight: 1,
+                fillColor: FDRS_BAND_COLOR[c.worstDcBand],
+                fillOpacity: 0.6,
               }}
+              eventHandlers={{ click: () => onSelectCluster?.(c) }}
             >
-              <Popup>
-                <div className="p-2.5 text-xs w-60">
-                  <div className="flex items-center justify-between gap-1 border-b border-slate-700 pb-1.5 mb-1.5">
-                    <span className="font-mono font-bold text-slate-200 text-[11px]">
-                      {h.id}
-                    </span>
-                    <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                      h.confidenceLevel === 'high' 
-                        ? 'bg-red-500/20 text-red-400 border border-red-500/40'
-                        : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                    }`}>
-                      {h.confidence}%
-                    </span>
-                  </div>
-
-                  <div className={`p-1.5 rounded-lg mb-2 text-[10px] font-medium border ${
-                    h.landCategory === 'hutan_lindung' 
-                      ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-200' 
-                      : h.landCategory.includes('sawit')
-                      ? 'bg-amber-950/70 border-amber-500/40 text-amber-200'
-                      : h.landCategory === 'tambang'
-                      ? 'bg-purple-950/70 border-purple-500/40 text-purple-200'
-                      : 'bg-cyan-950/70 border-cyan-500/40 text-cyan-200'
-                  }`}>
-                    <div className="font-bold flex items-center gap-1 truncate">
-                      <span>{h.landDetail.categoryName}</span>
-                    </div>
-                    <p className="opacity-90 truncate">{h.landDetail.specificAreaName}</p>
-                  </div>
-
-                  <div className="space-y-0.5 text-slate-300 text-[10px] mb-2">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Lokasi:</span>
-                      <span className="font-semibold truncate">{h.district}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Daya FRP:</span>
-                      <span className="font-mono text-orange-400 font-bold">{h.frp} MW</span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => onOpenDetails(h)}
-                    className="w-full py-1 px-2 bg-gradient-to-r from-orange-500 to-amber-600 text-white font-semibold rounded-lg text-[10px] flex items-center justify-center gap-1 shadow transition"
-                  >
-                    <ShieldAlert className="w-3 h-3" />
-                    <span>Investigasi Spasial</span>
-                  </button>
+              <Tooltip direction="top">
+                <div className="p-2">
+                  <p className="text-[12px] font-bold text-amber-den">{c.size} deteksi</p>
+                  <p className="text-[11px] text-cream">
+                    {c.districts[0] ?? 'wilayah tidak tercatat'}
+                    {c.provinces[0] ? `, ${c.provinces[0]}` : ''}
+                  </p>
+                  <p className="text-[11px] text-cream-muted">
+                    bentangan {c.spanKm} km · {c.passes} lintasan
+                  </p>
+                  <p className="text-[11px] text-cream-muted">
+                    Bahaya {FDRS_BAND_LABEL[c.worstDcBand]}
+                    {c.dominantCover ? ` · ${INDICATION_SHORT[c.dominantCover]}` : ''}
+                  </p>
+                  {c.insideAreaCount > 0 && (
+                    <p className="text-[10px] text-amber-den mt-1">
+                      {c.insideAreaCount} titik dalam {c.areaName}
+                    </p>
+                  )}
                 </div>
-              </Popup>
+              </Tooltip>
             </CircleMarker>
+          ))}
+
+        {/* Dense view: canvas dots, colour only. Shapes cost a DOM node each. */}
+        {!clusterView && dense &&
+          visible.map((h) => (
+            <CircleMarker
+              key={`d-${h.id}`}
+              center={[h.latitude, h.longitude]}
+              radius={3.5}
+              pathOptions={{
+                color: '#2d2318',
+                weight: 0.6,
+                fillColor: INDICATION_COLOR[h.imagery?.indication ?? 'not_analysed'],
+                fillOpacity: 0.9,
+              }}
+              eventHandlers={{ click: () => onSelect(h) }}
+            />
+          ))}
+
+        {!clusterView && !dense && visible.map((h) => {
+          const indication = h.imagery?.indication ?? 'not_analysed';
+          return (
+            <Marker
+              key={h.id}
+              position={[h.latitude, h.longitude]}
+              icon={markerIcon(h.confidence.level, indication)}
+              eventHandlers={{ click: () => onSelect(h) }}
+            >
+              <Tooltip direction="top" offset={[0, -10]}>
+                <div className="p-2">
+                  <p className="text-[11px] font-semibold" style={{ color: INDICATION_COLOR[indication] }}>
+                    {INDICATION_SHORT[indication]}
+                    {h.imagery?.reviewedByHuman ? ' (dikonfirmasi)' : ''}
+                  </p>
+                  <p className="text-[11px] text-cream-muted">Kepercayaan {confidenceLabel(h.confidence)}</p>
+                  <p className="font-mono text-[10px] text-cream-faint mt-1">{h.satellite}</p>
+                  <p className="text-[11px] text-cream">
+                    {h.acquisitionDate} · {h.acquisitionTimeLocal}
+                  </p>
+                  <p className="text-[10px] text-cream-faint mt-1">Jejak piksel {h.footprintMeters} m</p>
+                </div>
+              </Tooltip>
+            </Marker>
           );
         })}
 
+        {ready && <FitToData hotspots={hotspots} />}
+        <Recenter target={flyTo} />
+        <ViewWatch
+          onView={(z, b) => {
+            setZoom(z);
+            setBounds(b);
+          }}
+        />
       </MapContainer>
 
-      {/* Floating Basemap & View Mode Selector (Top Right) */}
-      <div className="absolute top-2.5 right-2.5 z-20 flex flex-col gap-1.5">
-        <div className="glass-panel p-1 rounded-xl flex items-center gap-1 shadow-lg bg-slate-950/85">
-          <button
-            onClick={() => setBaseMap('dark')}
-            className={`px-2 py-0.5 text-[10px] rounded-lg font-medium transition ${
-              baseMap === 'dark' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400'
-            }`}
-          >
-            Dark
-          </button>
-          <button
-            onClick={() => setBaseMap('satellite')}
-            className={`px-2 py-0.5 text-[10px] rounded-lg font-medium transition ${
-              baseMap === 'satellite' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400'
-            }`}
-          >
-            Satelit
-          </button>
+      {onToggleClusterView && (
+        <div className="absolute top-3 left-3 z-[500] panel-sunken px-1 py-1 flex">
+          {[
+            { v: false, label: `Titik (${hotspots.length.toLocaleString('id-ID')})` },
+            { v: true, label: `Gugus (${clusters.length.toLocaleString('id-ID')})` },
+          ].map((o) => (
+            <button
+              key={String(o.v)}
+              onClick={() => onToggleClusterView(o.v)}
+              className={
+                'px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ' +
+                (clusterView === o.v ? 'bg-amber-den text-espresso' : 'text-cream-faint hover:text-cream')
+              }
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="absolute bottom-3 left-3 z-[500] panel-sunken px-3 py-2.5 max-w-[330px]">
+        <p className="text-[10px] uppercase tracking-wider text-cream-faint font-semibold mb-1.5">
+          {clusterView ? 'Warna = kelas bahaya terberat dalam gugus' : 'Warna = tutupan lahan pada citra'}
+        </p>
+        <div className={'grid gap-x-3 gap-y-1 ' + (clusterView ? 'grid-cols-2' : 'grid-cols-2')}>
+          {clusterView
+            ? (['sangat_mudah', 'mudah', 'tidak_mudah', 'aman', 'tidak_ada_data'] as const).map((b) => (
+                <div key={b} className="flex items-center gap-1.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ background: FDRS_BAND_COLOR[b], boxShadow: '0 0 0 1.5px #fdf7f2' }}
+                  />
+                  <span className="text-[10px] text-cream-muted truncate">{FDRS_BAND_LABEL[b]}</span>
+                </div>
+              ))
+            : LEGEND.map((i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ background: INDICATION_COLOR[i], boxShadow: '0 0 0 1.5px #fdf7f2' }}
+              />
+              <span className="text-[10px] text-cream-muted truncate">{INDICATION_SHORT[i]}</span>
+            </div>
+          ))}
         </div>
 
-        {/* View Mode Toggle */}
-        <div className="glass-panel p-1 rounded-xl flex items-center gap-1 shadow-lg bg-slate-950/85">
-          <button
-            onClick={() => setViewMode(viewMode === 'pins' ? 'heat' : 'pins')}
-            className={`w-full px-2 py-0.5 text-[10px] rounded-lg font-medium flex items-center justify-center gap-1 transition ${
-              viewMode === 'heat' ? 'bg-red-600 text-white font-semibold' : 'bg-orange-600 text-white'
-            }`}
-          >
-            <Flame className="w-3 h-3" />
-            <span>{viewMode === 'pins' ? 'Mode Pin' : 'Mode Heat'}</span>
-          </button>
+        {clusterView && (
+          <p className="text-[10px] text-cream-faint leading-snug mt-2">
+            Luas lingkaran sebanding dengan akar jumlah deteksi. Gugus berisi satu deteksi tetap digambar,
+            berukuran paling kecil.
+          </p>
+        )}
+
+        {!clusterView && (
+          <p className="text-[10px] uppercase tracking-wider text-cream-faint font-semibold mt-2.5 mb-1.5">
+            Bentuk = tingkat kepercayaan deteksi
+          </p>
+        )}
+        <div className={'items-center gap-3.5 ' + (clusterView ? 'hidden' : 'flex')}>
+          {CONFIDENCE_LEVELS.map((level) => (
+            <div key={level} className="flex items-center gap-1.5">
+              <span
+                className="shrink-0 inline-flex"
+                dangerouslySetInnerHTML={{
+                  __html:
+                    `<svg width="14" height="14" viewBox="0 0 16 16">` +
+                    `<g fill="none" stroke="#fdf7f2" stroke-width="3.2" stroke-linejoin="round">${shapePath(level, 16)}</g>` +
+                    `<g fill="#cbbba6" stroke="#2d2318" stroke-width="1.1" stroke-linejoin="round">${shapePath(level, 16)}</g>` +
+                    `</svg>`,
+                }}
+              />
+              <span className="text-[10px] text-cream-muted">{CONFIDENCE_WORD[level]}</span>
+            </div>
+          ))}
         </div>
+
+        <p className="text-[9px] text-cream-faint leading-snug mt-2 pt-2 border-t border-espresso-line">
+          {dense
+            ? `${visible.length.toLocaleString('id-ID')} titik dalam tampilan. Perbesar peta sampai di bawah ${SHAPE_CAP.toLocaleString('id-ID')} titik untuk melihat bentuk dan jejak piksel.`
+            : showFootprints
+              ? 'Lingkaran putus-putus adalah jejak piksel sensor yang sebenarnya.'
+              : 'Perbesar peta untuk melihat jejak piksel sensor yang sebenarnya.'}{' '}
+          {AREA_LAYER_DISCLAIMER}
+        </p>
       </div>
-
-      {/* Collapsible Layer Selector (Top Left for Mobile / Desktop) */}
-      <div className="absolute top-2.5 left-2.5 z-20 glass-panel rounded-2xl shadow-xl bg-slate-950/90 text-xs overflow-hidden">
-        
-        {/* Toggle Button for Mobile */}
-        <button 
-          onClick={() => setIsLayerPanelOpenMobile(!isLayerPanelOpenMobile)}
-          className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 text-[10px] font-bold text-slate-200"
-        >
-          <div className="flex items-center gap-1">
-            <Layers className="w-3 h-3 text-orange-400" />
-            <span>Layer Poligon</span>
-          </div>
-          {isLayerPanelOpenMobile ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3 sm:hidden" />}
-        </button>
-
-        {/* Layer list */}
-        <div className={`p-2 space-y-1 text-[10px] border-t border-slate-800 ${
-          isLayerPanelOpenMobile ? 'block' : 'hidden sm:block'
-        }`}>
-          <button
-            onClick={() => setShowHutanLindung(!showHutanLindung)}
-            className={`w-full flex items-center justify-between gap-2 px-1.5 py-0.5 rounded ${
-              showHutanLindung ? 'text-emerald-300' : 'text-slate-500'
-            }`}
-          >
-            <span>🌲 Hutan Lindung</span>
-            {showHutanLindung ? <Eye className="w-2.5 h-2.5 text-emerald-400" /> : <EyeOff className="w-2.5 h-2.5" />}
-          </button>
-
-          <button
-            onClick={() => setShowSawit(!showSawit)}
-            className={`w-full flex items-center justify-between gap-2 px-1.5 py-0.5 rounded ${
-              showSawit ? 'text-amber-300' : 'text-slate-500'
-            }`}
-          >
-            <span>🌴 Konsesi Sawit</span>
-            {showSawit ? <Eye className="w-2.5 h-2.5 text-amber-400" /> : <EyeOff className="w-2.5 h-2.5" />}
-          </button>
-
-          <button
-            onClick={() => setShowTambang(!showTambang)}
-            className={`w-full flex items-center justify-between gap-2 px-1.5 py-0.5 rounded ${
-              showTambang ? 'text-purple-300' : 'text-slate-500'
-            }`}
-          >
-            <span>⛏️ Konsesi Tambang</span>
-            {showTambang ? <Eye className="w-2.5 h-2.5 text-purple-400" /> : <EyeOff className="w-2.5 h-2.5" />}
-          </button>
-
-          <button
-            onClick={() => setShowPerkotaan(!showPerkotaan)}
-            className={`w-full flex items-center justify-between gap-2 px-1.5 py-0.5 rounded ${
-              showPerkotaan ? 'text-cyan-300' : 'text-slate-500'
-            }`}
-          >
-            <span>🏙️ Perkotaan</span>
-            {showPerkotaan ? <Eye className="w-2.5 h-2.5 text-cyan-400" /> : <EyeOff className="w-2.5 h-2.5" />}
-          </button>
-        </div>
-
-      </div>
-
-      {/* Floating Legend (Bottom Left - Hidden on small mobile to avoid blocking map) */}
-      <div className="absolute bottom-2.5 left-2.5 z-20 glass-panel p-2 rounded-2xl shadow-xl bg-slate-950/90 text-[10px] hidden md:block">
-        <div className="font-bold text-slate-300 mb-1 flex items-center gap-1">
-          <Info className="w-3 h-3 text-orange-400" /> Legenda Lahan
-        </div>
-        <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-          <span className="flex items-center gap-1 text-emerald-400"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Hutan Lindung</span>
-          <span className="flex items-center gap-1 text-amber-400"><span className="w-2 h-2 rounded-full bg-amber-500" /> Dalam Sawit</span>
-          <span className="flex items-center gap-1 text-orange-400"><span className="w-2 h-2 rounded-full bg-orange-500" /> Buffer Sawit</span>
-          <span className="flex items-center gap-1 text-purple-400"><span className="w-2 h-2 rounded-full bg-purple-500" /> Tambang</span>
-        </div>
-      </div>
-
     </div>
   );
-};
+}

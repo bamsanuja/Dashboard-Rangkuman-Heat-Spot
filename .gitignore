@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Perkakas lokal dan berkas sementara, jangan ikut masuk repositori
+.venv-fdrs/
+_to_delete/
+fdrs-*.json
+!public/fdrs-latest.json

@@ -1,224 +1,316 @@
-import React from 'react';
-import { 
-  X, 
-  Printer, 
-  Flame, 
-  ShieldAlert
-} from 'lucide-react';
-import type { Hotspot, SpatialSummary } from '../types';
+import { X, Printer } from 'lucide-react';
+import type { DataProvenance, Hotspot, Summary } from '../types';
+import { EVIDENTIARY_NOTE, INSTITUTIONS, LEGAL_REFERENCES, TENURE_NOTE } from '../utils/legal';
+import { AREA_LAYER_DISCLAIMER } from '../data/protectedAreas';
+import {
+  ALL_INDICATIONS, INDICATION_DEFINITION, INDICATION_LABEL, INDICATION_SHORT, METHOD_NOTE,
+} from '../utils/imageryIndication';
+import { FDRS_BAND_LABEL, FDRS_BANDS, FDRS_THRESHOLDS } from '../utils/fdrs';
 
-interface ReportGeneratorModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  summary: SpatialSummary;
-  hotspots: Hotspot[];
-}
-
-export const ReportGeneratorModal: React.FC<ReportGeneratorModalProps> = ({
+/**
+ * A screening note, not an official document. Every framing that made the old
+ * version look like a government product has been removed: no "dokumen resmi",
+ * no ministry logo lockup, no claim that the app is the source of the data.
+ */
+export default function ReportGeneratorModal({
   isOpen,
   onClose,
+  hotspots,
   summary,
-  hotspots
-}) => {
+  provenance,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  hotspots: Hotspot[];
+  summary: Summary;
+  provenance: DataProvenance | null;
+}) {
   if (!isOpen) return null;
 
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('id-ID', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-
-  const criticalHotspots = hotspots
-    .filter(h => h.landDetail.riskLevel === 'Kritis' || h.landCategory === 'hutan_lindung')
-    .slice(0, 8);
-
-  const handlePrint = () => {
-    window.print();
-  };
+  // Ranked by what makes a point worth visiting first: deep-layer dryness,
+  // then position relative to a conservation area, then detection confidence.
+  const bandRank: Record<string, number> = { sangat_mudah: 3, mudah: 2, tidak_mudah: 1, aman: 0, tidak_ada_data: 0 };
+  const areaRank: Record<string, number> = { within_indicative_boundary: 2, near_boundary: 1, outside: 0 };
+  const confRank: Record<string, number> = { high: 2, nominal: 1, low: 0 };
+  const score = (h: Hotspot) =>
+    bandRank[h.fdrs?.dcBand ?? 'tidak_ada_data'] * 100 +
+    areaRank[h.proximity?.relation ?? 'outside'] * 10 +
+    confRank[h.confidence.level];
+  const priority = [...hotspots].sort((a, b) => score(b) - score(a) || b.frp - a.frp).slice(0, 15);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl glass-panel-card rounded-t-3xl sm:rounded-3xl border-t sm:border border-slate-700 shadow-2xl overflow-hidden bg-slate-950/98 max-h-[92vh] flex flex-col">
-        
-        {/* Mobile pull indicator */}
-        <div className="sm:hidden w-12 h-1.5 bg-slate-700 rounded-full mx-auto mt-2.5 mb-1" />
-
-        {/* Modal Controls Bar */}
-        <div className="p-3.5 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90 print:hidden">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" />
-            <h3 className="font-bold text-slate-100 text-xs sm:text-base truncate">
-              Laporan Ringkasan Eksekutif Karhutla
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow-md transition"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Cetak / PDF</span>
+    <div className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 print:p-0 print:bg-white" onClick={onClose}>
+      <div className="panel w-full max-w-3xl max-h-[92vh] overflow-y-auto print:max-h-none print:border-0" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-3.5 border-b border-espresso-line flex items-center justify-between print:hidden">
+          <h2 className="font-bold text-cream text-[15px]">Catatan penapisan</h2>
+          <div className="flex items-center gap-3">
+            <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 text-[12px] text-cream-muted hover:text-amber-den">
+              <Printer className="w-4 h-4" />
+              Cetak
             </button>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
-            >
+            <button onClick={onClose} className="text-cream-faint hover:text-cream">
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Printable Document Body */}
-        <div id="printable-report" className="p-4 sm:p-8 overflow-y-auto space-y-4 sm:space-y-6 text-slate-200 bg-slate-950 text-xs leading-relaxed print:text-black print:bg-white">
-          
-          {/* Document Header */}
-          <div className="border-b-2 border-slate-700 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <div>
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <Flame className="w-5 h-5 text-red-500" />
-                <span className="font-extrabold text-base sm:text-xl text-white tracking-tight uppercase print:text-black">
-                  SIPONGI LAND-WATCH BRIEFING
-                </span>
-              </div>
-              <h2 className="text-[11px] sm:text-xs font-semibold text-slate-400 print:text-slate-700">
-                Analisis Spasial Zonasi Peruntukan Lahan Karhutla
-              </h2>
-            </div>
-
-            <div className="text-left sm:text-right text-[10px] sm:text-[11px] text-slate-400 print:text-slate-600">
-              <div><strong>Tanggal:</strong> {dateStr}</div>
-              <div><strong>Satelit:</strong> VIIRS / MODIS • Sipongi+ KLHK</div>
-            </div>
-          </div>
-
-          {/* Summary */}
-          <div className="p-3 sm:p-4 rounded-2xl bg-slate-900/80 border border-slate-800 print:border-gray-300 print:bg-gray-50">
-            <h4 className="font-bold text-slate-100 print:text-black text-xs sm:text-sm mb-1.5">
-              Ringkasan Temuan Utama
-            </h4>
-            <p className="text-slate-300 print:text-slate-800 text-[11px] sm:text-xs leading-relaxed">
-              Hasil analisis spasial terhadap total <strong>{summary.total} titik panas</strong>:
+        <div className="p-6 space-y-5">
+          <header>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-amber-den font-bold">Catatan penapisan spasial</p>
+            <h1 className="text-xl font-bold text-cream mt-1">Titik panas dan kedekatan kawasan konservasi</h1>
+            <p className="text-[11px] text-cream-faint mt-1">
+              Disusun {new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}
             </p>
-            <ul className="mt-1.5 space-y-1 list-disc list-inside text-slate-300 print:text-slate-800 text-[10px] sm:text-[11px]">
-              <li>
-                <strong className="text-emerald-400 print:text-emerald-700">{summary.hutanLindung} titik ({Math.round((summary.hutanLindung / (summary.total || 1)) * 100)}%)</strong> di Kawasan Hutan Lindung & Taman Nasional.
-              </li>
-              <li>
-                <strong className="text-amber-400 print:text-amber-700">{summary.sawitTotal} titik ({Math.round((summary.sawitTotal / (summary.total || 1)) * 100)}%)</strong> di Perkebunan Sawit ({summary.sawitInside} dalam HGU, {summary.sawitBuffer} buffer &lt;2km).
-              </li>
-              <li>
-                <strong className="text-purple-400 print:text-purple-700">{summary.tambang} titik ({Math.round((summary.tambang / (summary.total || 1)) * 100)}%)</strong> di area Pertambangan.
-              </li>
-              <li>
-                <strong className="text-cyan-400 print:text-cyan-700">{summary.perkotaan} titik ({Math.round((summary.perkotaan / (summary.total || 1)) * 100)}%)</strong> di sekitar Perkotaan & Pemukiman (siaga ISPA).
-              </li>
-            </ul>
-          </div>
+          </header>
 
-          {/* Table: Kategori Zonasi Lahan */}
-          <div>
-            <h4 className="font-bold text-slate-100 print:text-black text-xs sm:text-sm mb-2">
-              1. Tabel Distribusi Zonasi Lahan
-            </h4>
-            <div className="overflow-x-auto border border-slate-800 rounded-xl">
-              <table className="w-full text-left text-[11px]">
-                <thead className="bg-slate-900 text-slate-300 print:bg-gray-200 print:text-black font-semibold">
-                  <tr>
-                    <th className="py-2 px-2.5">Kategori Lahan</th>
-                    <th className="py-2 px-2.5 text-center">Jumlah</th>
-                    <th className="py-2 px-2.5 text-center">Persentase</th>
-                    <th className="py-2 px-2.5">Tindak Lanjut</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800 print:divide-gray-300">
-                  <tr>
-                    <td className="py-2 px-2.5 font-semibold text-emerald-300 print:text-emerald-800">
-                      🌲 Hutan Lindung
-                    </td>
-                    <td className="py-2 px-2.5 text-center font-mono font-bold">{summary.hutanLindung}</td>
-                    <td className="py-2 px-2.5 text-center font-mono">{Math.round((summary.hutanLindung / (summary.total || 1)) * 100)}%</td>
-                    <td className="py-2 px-2.5 text-[10px] text-slate-300 print:text-slate-800">
-                      Penegakan UU Kehutanan 18/2013 & Patroli Manggala Agni.
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-2.5 font-semibold text-amber-300 print:text-amber-800">
-                      🌴 Konsesi Sawit
-                    </td>
-                    <td className="py-2 px-2.5 text-center font-mono font-bold">{summary.sawitTotal}</td>
-                    <td className="py-2 px-2.5 text-center font-mono">{Math.round((summary.sawitTotal / (summary.total || 1)) * 100)}%</td>
-                    <td className="py-2 px-2.5 text-[10px] text-slate-300 print:text-slate-800">
-                      Audit sarpras damkar & pertanggungjawaban mutlak HGU.
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-2.5 font-semibold text-purple-300 print:text-purple-800">
-                      ⛏️ Pertambangan
-                    </td>
-                    <td className="py-2 px-2.5 text-center font-mono font-bold">{summary.tambang}</td>
-                    <td className="py-2 px-2.5 text-center font-mono">{Math.round((summary.tambang / (summary.total || 1)) * 100)}%</td>
-                    <td className="py-2 px-2.5 text-[10px] text-slate-300 print:text-slate-800">
-                      Evaluasi AMDAL pembukaan lahan tambang.
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-2.5 font-semibold text-cyan-300 print:text-cyan-800">
-                      🏙️ Perkotaan
-                    </td>
-                    <td className="py-2 px-2.5 text-center font-mono font-bold">{summary.perkotaan}</td>
-                    <td className="py-2 px-2.5 text-center font-mono">{Math.round((summary.perkotaan / (summary.total || 1)) * 100)}%</td>
-                    <td className="py-2 px-2.5 text-[10px] text-slate-300 print:text-slate-800">
-                      Peringatan ISPU dan posko kesehatan ISPA.
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+          <section className="rule-amber pl-3 py-1">
+            <p className="text-[11px] uppercase tracking-wider text-cream-faint font-semibold">Status dokumen</p>
+            <p className="text-[12px] text-cream-muted leading-relaxed mt-1">
+              Bukan dokumen resmi dan tidak diterbitkan oleh instansi pemerintah mana pun. Ini adalah hasil
+              penapisan awal atas berkas yang diimpor pengguna, disusun untuk menentukan lokasi mana yang layak
+              diverifikasi di lapangan.
+            </p>
+          </section>
+
+          <section>
+            <p className="text-[11px] uppercase tracking-wider text-cream-faint font-semibold mb-1">Sumber data</p>
+            {provenance ? (
+              <p className="text-[12px] text-cream-muted leading-relaxed">
+                {provenance.attribution}. Berkas <span className="font-mono">{provenance.fileName}</span>, memuat{' '}
+                {provenance.rowCount} titik terbaca
+                {provenance.skippedCount > 0 ? ` dan ${provenance.skippedCount} baris yang dilewati` : ''}, diimpor{' '}
+                {new Date(provenance.importedAt).toLocaleString('id-ID')}. Data ini adalah snapshot berkas, bukan
+                umpan langsung.
+              </p>
+            ) : (
+              <p className="text-[12px] text-cream-muted">Belum ada data yang dimuat.</p>
+            )}
+          </section>
+
+          <section>
+            <p className="text-[11px] uppercase tracking-wider text-cream-faint font-semibold mb-2">Angka pokok</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                ['Titik terbaca', String(summary.total)],
+                ['Kepercayaan tinggi', String(summary.byConfidence.high)],
+                ['FRP tertinggi', summary.frpMax ? `${summary.frpMax.toFixed(1)} MW` : 'n/a'],
+                ['Dalam batas indikatif', String(summary.withinIndicativeBoundary)],
+              ].map(([label, value]) => (
+                <div key={label} className="panel-sunken p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-cream-faint">{label}</p>
+                  <p className="font-mono text-lg font-bold text-cream">{value}</p>
+                </div>
+              ))}
             </div>
-          </div>
+            <p className="text-[10px] text-cream-faint mt-2 leading-snug">
+              FRP dilaporkan sebagai nilai tertinggi dan median, bukan jumlah. FRP adalah laju daya sesaat, sehingga
+              penjumlahan antar waktu dan antar sensor tidak memiliki arti fisik.
+            </p>
+          </section>
 
-          {/* Table: Critical Hotspots Priority */}
-          <div>
-            <h4 className="font-bold text-slate-100 print:text-black text-xs sm:text-sm mb-2">
-              2. Titik Panas Kritis Prioritas Lapangan
-            </h4>
-            <div className="overflow-x-auto border border-slate-800 rounded-xl">
-              <table className="w-full text-left text-[10px] sm:text-[11px]">
-                <thead className="bg-slate-900 text-slate-300 print:bg-gray-200 print:text-black font-semibold">
-                  <tr>
-                    <th className="py-1.5 px-2">ID</th>
-                    <th className="py-1.5 px-2">Lokasi</th>
-                    <th className="py-1.5 px-2">Kawasan</th>
-                    <th className="py-1.5 px-2 text-center">Confidence</th>
-                    <th className="py-1.5 px-2 text-center">FRP</th>
+          <section>
+            <p className="text-[11px] uppercase tracking-wider text-cream-faint font-semibold mb-2">
+              Tutupan lahan di bawah titik panas
+            </p>
+            {summary.imageryAnalysed > 0 ? (
+              <>
+                <table className="w-full text-[11px]">
+                  <tbody>
+                    {ALL_INDICATIONS.filter((i) => summary.byIndication[i] > 0).map((i) => (
+                      <tr key={i} className="border-b border-espresso-line/50">
+                        <td className="py-1.5 text-cream-muted">{INDICATION_SHORT[i]}</td>
+                        <td className="py-1.5 font-mono text-cream text-right w-16">{summary.byIndication[i]}</td>
+                        <td className="py-1.5 font-mono text-cream-faint text-right w-16">
+                          {((summary.byIndication[i] / (summary.total || 1)) * 100).toFixed(0)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-[10px] text-cream-faint mt-2 leading-snug">
+                  Dibaca otomatis dari citra basemap di tiap koordinat
+                  {summary.humanReviewed > 0 ? `, ${summary.humanReviewed} di antaranya dikoreksi manual` : ''}.
+                  Pengamatan tutupan lahan, bukan penetapan status izin.
+                </p>
+
+                <p className="text-[11px] uppercase tracking-wider text-cream-faint font-semibold mt-4 mb-1">
+                  Silang terhadap kawasan konservasi
+                </p>
+                <p className="text-[10px] text-cream-faint leading-snug mb-1.5">
+                  Vegetasi rapat adalah tampilan permukaan; kawasan konservasi adalah status hukum. Keduanya
+                  disilangkan agar tidak tertukar. Kolom kawasan hanya mencakup delapan poligon indikatif yang
+                  dimuat aplikasi.
+                </p>
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="text-cream-faint border-b border-espresso-line">
+                      <th className="text-left py-1.5 pr-2 font-semibold">Tutupan lahan</th>
+                      <th className="text-right py-1.5 px-2 font-semibold">Dalam batas indikatif</th>
+                      <th className="text-right py-1.5 px-2 font-semibold">Dekat batas</th>
+                      <th className="text-right py-1.5 pl-2 font-semibold">Di luar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ALL_INDICATIONS.filter((i) => summary.byIndication[i] > 0).map((i) => (
+                      <tr key={i} className="border-b border-espresso-line/50">
+                        <td className="py-1.5 pr-2 text-cream-muted">{INDICATION_SHORT[i]}</td>
+                        <td className={'text-right py-1.5 px-2 font-mono ' + (summary.coverByArea[i].inside > 0 ? 'text-amber-den font-bold' : 'text-cream-faint')}>
+                          {summary.coverByArea[i].inside || '·'}
+                        </td>
+                        <td className="text-right py-1.5 px-2 font-mono text-cream-muted">{summary.coverByArea[i].near || '·'}</td>
+                        <td className="text-right py-1.5 pl-2 font-mono text-cream-faint">{summary.coverByArea[i].outside || '·'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            ) : (
+              <p className="text-[12px] text-cream-faint">Citra belum dibaca untuk data ini.</p>
+            )}
+          </section>
+
+          <section>
+            <p className="text-[11px] uppercase tracking-wider text-cream-faint font-semibold mb-1">
+              Tingkat bahaya kebakaran, Drought Code
+            </p>
+            {summary.fdrsCovered > 0 ? (
+              <>
+                <p className="text-[10px] text-cream-faint leading-snug mb-1.5">
+                  Kekeringan lapisan organik dalam, disilangkan terhadap posisi pada kawasan konservasi. Pada lahan
+                  gambut, kelas Sangat Mudah berarti api berpeluang turun ke bawah permukaan dan bertahan jauh
+                  setelah nyala di permukaan padam.
+                </p>
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="text-cream-faint border-b border-espresso-line">
+                      <th className="text-left py-1.5 pr-2 font-semibold">Kelas bahaya</th>
+                      <th className="text-right py-1.5 px-2 font-semibold">Dalam batas indikatif</th>
+                      <th className="text-right py-1.5 px-2 font-semibold">Dekat batas</th>
+                      <th className="text-right py-1.5 pl-2 font-semibold">Di luar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {FDRS_BANDS.filter((b) => summary.byDcBand[b] > 0).map((b) => (
+                      <tr key={b} className="border-b border-espresso-line/50">
+                        <td className="py-1.5 pr-2 text-cream-muted">{FDRS_BAND_LABEL[b]}</td>
+                        <td className={'text-right py-1.5 px-2 font-mono ' + (b === 'sangat_mudah' && summary.dcBandByArea[b].inside > 0 ? 'text-sienna font-bold' : 'text-cream-faint')}>
+                          {summary.dcBandByArea[b].inside || '·'}
+                        </td>
+                        <td className="text-right py-1.5 px-2 font-mono text-cream-muted">{summary.dcBandByArea[b].near || '·'}</td>
+                        <td className="text-right py-1.5 pl-2 font-mono text-cream-faint">{summary.dcBandByArea[b].outside || '·'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-[10px] text-cream-faint mt-2 leading-snug">
+                  Nilai mentah dari GFWED NASA GISS pada resolusi sekitar 28 km. Ambang kelas mengikuti panel FDRS
+                  SIPONGI yang bersumber pada Spartan BMKG: Drought Code {FDRS_THRESHOLDS.dc.join(', ')}. Sel grid
+                  jauh lebih kasar daripada jejak piksel titik panas, sehingga nilainya menggambarkan kondisi di
+                  sekitar titik.
+                </p>
+              </>
+            ) : (
+              <p className="text-[12px] text-cream-faint">Grid FDRS belum dimuat untuk data ini.</p>
+            )}
+          </section>
+
+          <section>
+            <p className="text-[11px] uppercase tracking-wider text-cream-faint font-semibold mb-2">
+              Prioritas verifikasi lapangan
+            </p>
+            {priority.length ? (
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="text-left text-cream-faint border-b border-espresso-line">
+                    <th className="py-1.5 pr-2 font-semibold">Koordinat</th>
+                    <th className="py-1.5 pr-2 font-semibold">Waktu</th>
+                    <th className="py-1.5 pr-2 font-semibold">FRP</th>
+                    <th className="py-1.5 pr-2 font-semibold">Kawasan terdekat</th>
+                    <th className="py-1.5 pr-2 font-semibold">Indikasi citra</th>
+                    <th className="py-1.5 font-semibold">Bahaya</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800 print:divide-gray-300">
-                  {criticalHotspots.map(h => (
-                    <tr key={h.id}>
-                      <td className="py-1.5 px-2 font-mono font-bold text-slate-200 print:text-black">{h.id}</td>
-                      <td className="py-1.5 px-2">{h.district}, {h.province}</td>
-                      <td className="py-1.5 px-2 font-semibold text-emerald-300 print:text-emerald-800">
-                        {h.landDetail.specificAreaName}
+                <tbody>
+                  {priority.map((h) => (
+                    <tr key={h.id} className="border-b border-espresso-line/50">
+                      <td className="py-1.5 pr-2 font-mono text-cream-muted">
+                        {h.latitude.toFixed(3)}, {h.longitude.toFixed(3)}
                       </td>
-                      <td className="py-1.5 px-2 text-center font-mono font-bold text-red-400 print:text-red-700">
-                        {h.confidence}%
+                      <td className="py-1.5 pr-2 text-cream-muted">{h.acquisitionDate}</td>
+                      <td className="py-1.5 pr-2 font-mono text-cream-muted">{h.frp ? h.frp.toFixed(1) : '-'}</td>
+                      <td className="py-1.5 pr-2 text-cream-muted">{h.proximity?.areaName || '-'}</td>
+                      <td className="py-1.5 pr-2 text-cream-muted">
+                        {h.imagery ? INDICATION_LABEL[h.imagery.indication] : 'belum dicek'}
                       </td>
-                      <td className="py-1.5 px-2 text-center font-mono font-bold text-orange-400 print:text-orange-700">
-                        {h.frp} MW
+                      <td className="py-1.5 text-cream-muted">
+                        {h.fdrs ? FDRS_BAND_LABEL[h.fdrs.dcBand] : '-'}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            ) : (
+              <p className="text-[12px] text-cream-faint">Tidak ada titik berkepercayaan tinggi pada data yang dimuat.</p>
+            )}
+            <p className="text-[10px] text-cream-faint mt-2 leading-snug">
+              Urutan ini menandai lokasi yang layak diperiksa lebih dulu. Urutan ini bukan penilaian pelanggaran.
+            </p>
+          </section>
+
+          <section>
+            <p className="text-[11px] uppercase tracking-wider text-cream-faint font-semibold mb-2">Batasan</p>
+            <ul className="text-[11px] text-cream-muted space-y-1.5 list-disc list-inside leading-relaxed">
+              <li>{EVIDENTIARY_NOTE}</li>
+              <li>{AREA_LAYER_DISCLAIMER}</li>
+              <li>{TENURE_NOTE}</li>
+              <li>
+                Indikasi tutupan lahan dibaca dari citra basemap yang tanggal perekamannya tidak diketahui dan
+                umumnya berbeda jauh dari tanggal kebakaran. Indikasi tersebut menggambarkan kondisi tapak, bukan
+                kondisi saat kebakaran, dan bukan penetapan status lahan.
+              </li>
+              <li>
+                Resolusi piksel 375 m untuk VIIRS dan 1 km untuk MODIS. Penentuan di dalam atau di luar batas tidak
+                dapat diputuskan pada jarak yang lebih kecil dari setengah jejak piksel.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <p className="text-[11px] uppercase tracking-wider text-cream-faint font-semibold mb-2">
+              Definisi kelas tutupan lahan
+            </p>
+            <div className="space-y-2">
+              {ALL_INDICATIONS.filter((i) => summary.byIndication[i] > 0).map((i) => {
+                const d = INDICATION_DEFINITION[i];
+                return (
+                  <div key={i}>
+                    <p className="text-[11px] text-cream font-medium">{INDICATION_LABEL[i]}</p>
+                    <p className="text-[11px] text-cream-muted leading-snug">
+                      <span className="text-cream-faint">Ukuran:</span> {d.criteria}{' '}
+                      <span className="text-cream-faint">Artinya:</span> {d.meaning}{' '}
+                      <span className="text-sienna">Bukan:</span> {d.notMeaning}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
-          </div>
+            <p className="text-[10px] text-cream-faint leading-relaxed mt-2">{METHOD_NOTE}</p>
+          </section>
 
+          <section>
+            <p className="text-[11px] uppercase tracking-wider text-cream-faint font-semibold mb-2">Rujukan hukum</p>
+            <ul className="text-[11px] text-cream-muted space-y-1.5">
+              {LEGAL_REFERENCES.map((r) => (
+                <li key={r.citation}>
+                  <span className="text-cream font-medium">{r.citation}</span> — {r.title}. {r.relevance}
+                  {r.caution ? ` ${r.caution}` : ''}
+                </li>
+              ))}
+            </ul>
+            <p className="text-[10px] text-cream-faint mt-2">{INSTITUTIONS.note}</p>
+          </section>
         </div>
-
       </div>
     </div>
   );
-};
+}
