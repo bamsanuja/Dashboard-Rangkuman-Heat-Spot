@@ -1,4 +1,4 @@
-# Dashboard Ringkasan Heat Spot
+# Dashboard Rangkuman Heat Spot
 
 Alat penapisan spasial titik panas karhutla. Aplikasi ini menampilkan titik panas di atas
 poligon indikatif kawasan konservasi, dan membaca indikasi tutupan lahan dari citra satelit

@@ -1,10 +1,16 @@
 # Mengambil grid Fire Danger Rating harian dan menyimpannya ke repositori.
 #
 # Inilah yang menghapus langkah terminal. Skrip berjalan di server GitHub,
-# bukan di komputer siapa pun. Hasil commit-nya memicu workflow "Deploy to
-# GitHub Pages" yang sudah ada, sehingga situsnya ikut diperbarui. Aplikasi
-# kemudian memuat grid itu dari alamatnya sendiri, jadi tidak ada halangan CORS
-# dan tidak ada yang perlu mengimpor apa pun.
+# bukan di komputer siapa pun. Setelah grid tersimpan, workflow ini memanggil
+# workflow penerbitan secara langsung, sehingga situsnya ikut diperbarui.
+# Aplikasi kemudian memuat grid itu dari alamatnya sendiri, jadi tidak ada
+# halangan CORS dan tidak ada yang perlu mengimpor apa pun.
+#
+# Panggilan langsung itu penting. Dorongan yang memakai GITHUB_TOKEN bawaan
+# sengaja tidak memicu workflow lain, jadi commit di bawah TIDAK akan
+# menyalakan pemicu `push` milik workflow penerbitan. Tanpa panggilan eksplisit
+# di job `terbitkan`, grid harian akan mendarat di repositori tanpa pernah
+# tayang di situs.
 #
 # Dua cara menjalankan:
 #   1. Otomatis setiap hari pukul 02:00 UTC, yaitu 09:00 WIB.
@@ -32,10 +38,12 @@ concurrency:
 jobs:
   ambil:
     runs-on: ubuntu-latest
+    outputs:
+      berubah: ${{ steps.simpan.outputs.berubah }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -71,14 +79,25 @@ jobs:
           fi
 
       - name: Simpan ke repositori
+        id: simpan
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add public/fdrs-latest.json
           if git diff --staged --quiet; then
             echo "Grid tidak berubah, tidak ada yang perlu disimpan."
+            echo "berubah=false" >> "$GITHUB_OUTPUT"
           else
-            # Commit ke main memicu workflow Deploy to GitHub Pages yang sudah ada.
             git commit -m "data: perbarui grid FDRS"
             git push
+            echo "berubah=true" >> "$GITHUB_OUTPUT"
           fi
+
+  # Menerbitkan ulang situs supaya grid yang baru saja disimpan benar-benar
+  # tayang. Dilewati kalau gridnya tidak berubah, agar tidak ada build sia-sia.
+  terbitkan:
+    needs: ambil
+    if: needs.ambil.outputs.berubah == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/deploy.yml

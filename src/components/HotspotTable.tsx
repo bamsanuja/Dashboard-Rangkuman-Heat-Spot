@@ -48,7 +48,7 @@ export default function HotspotTable({
     a.href = url;
     // Filename says what the file is, and does not claim SiPongi origin for
     // columns this app derived.
-    a.download = `ringkasan-heatspot-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `rangkuman-heatspot-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

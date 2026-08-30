@@ -15,6 +15,14 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Dipanggil langsung oleh workflow FDRS setelah ia menyimpan grid harian.
+  # Ini bukan kemewahan: GitHub sengaja TIDAK memicu workflow untuk dorongan
+  # yang memakai GITHUB_TOKEN bawaan, sebagai pencegah putaran tak berujung.
+  # Jadi commit FDRS tidak pernah menyalakan pemicu `push` di atas, dan tanpa
+  # panggilan langsung ini datanya akan mendarat di repositori tanpa pernah
+  # tayang. Panggilan `workflow_call` tidak lewat pemicu peristiwa, sehingga
+  # larangan itu tidak berlaku dan tidak perlu PAT.
+  workflow_call:
 
 permissions:
   contents: write
@@ -27,9 +35,15 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          # Sengaja mengambil ujung branch, bukan SHA pemicu. Saat dipanggil
+          # workflow FDRS, SHA pemicu masih commit sebelum grid disimpan,
+          # sehingga hasil build-nya justru tidak memuat data yang baru saja
+          # diambil. Ujung branch selalu yang terbaru.
+          ref: ${{ github.ref }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: npm
@@ -44,4 +58,4 @@ jobs:
           publish_dir: ./dist
           # Dorongan ke gh-pages tidak memicu workflow ini lagi, karena
           # pemicunya hanya push ke main. Tidak ada risiko putaran tak berujung.
-          commit_message: 'deploy: ${{ github.event.head_commit.message }}'
+          commit_message: 'deploy: ${{ github.event.head_commit.message || github.sha }}'
