@@ -1,49 +1,47 @@
+# Menerbitkan situs ke GitHub Pages lewat branch gh-pages.
+#
+# Kenapa memakai cara ini, bukan actions/deploy-pages yang lebih baru:
+# repositori ini sejak awal disetel menyajikan Pages dari branch gh-pages, dan
+# environment `github-pages` di sini punya kebijakan yang hanya mengizinkan
+# branch gh-pages. Cara baru menuntut sumber Pages disetel ke "GitHub Actions"
+# DAN main dimasukkan ke daftar izin environment, dua setelan yang harus diubah
+# lewat antarmuka web.
+#
+# Mendorong ke branch gh-pages adalah dorongan git biasa, sehingga tidak
+# menyentuh environment sama sekali. Hasilnya sama, tanpa satu pun klik setelan.
 name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: "pages"
+  group: pages-deploy
   cancel-in-progress: true
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: '20'
+          cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
+      - run: npm run build
 
-      - name: Build
-        run: npm run build
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Dorong hasil build ke branch gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: './dist'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          # Dorongan ke gh-pages tidak memicu workflow ini lagi, karena
+          # pemicunya hanya push ke main. Tidak ada risiko putaran tak berujung.
+          commit_message: 'deploy: ${{ github.event.head_commit.message }}'

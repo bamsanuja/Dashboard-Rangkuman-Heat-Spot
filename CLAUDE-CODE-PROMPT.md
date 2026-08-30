@@ -1,90 +1,41 @@
 # Prompt untuk Claude Code
 
-Salin seluruh isi di bawah garis ini ke Claude Code, dijalankan dari folder
+Salin bagian di bawah garis ke Claude Code, jalankan dari
 `/Users/bambanganuja/Documents/Project Gasing`.
 
 ---
 
-Kerjakan empat hal berikut di repositori ini, berurutan. Berhenti dan laporkan
-kalau ada langkah yang gagal, jangan lanjut ke langkah berikutnya.
+Jalankan seluruh langkah di bawah sampai selesai tanpa berhenti bertanya,
+kecuali pada titik yang memang saya minta Anda berhenti.
 
-## 1. Perbaiki deploy GitHub Pages yang gagal
+Deploy ke GitHub Pages sebelumnya gagal karena dua kebijakan repositori. Alih-alih
+mengubah setelan, kita ganti cara deploy-nya supaya cocok dengan konfigurasi yang
+sudah ada.
 
-Workflow `deploy.yml` gagal dengan pesan:
+Latar belakangnya: repositori ini menyajikan Pages dari branch `gh-pages`, dan
+environment `github-pages` punya kebijakan yang hanya mengizinkan branch
+`gh-pages`. Workflow lama memakai `actions/deploy-pages`, yang menuntut sumber
+Pages disetel ke "GitHub Actions" sekaligus `main` masuk daftar izin environment.
+Mendorong hasil build langsung ke branch `gh-pages` adalah dorongan git biasa,
+jadi tidak menyentuh environment sama sekali.
 
-```
-Branch "main" is not allowed to deploy to github-pages due to environment protection rules.
-The deployment was rejected or didn't satisfy other protection rules.
-```
+`.github/workflows/deploy.yml` sudah saya ganti isinya. Tugas Anda memastikan
+sisanya berjalan.
 
-Penyebabnya: repositori ini punya dua jalur deploy yang bertabrakan. Ada branch
-`gh-pages` dan skrip `gh-pages -d dist` di package.json (cara lama), sementara
-`deploy.yml` memakai `actions/deploy-pages` (cara baru). Cara baru menuntut
-sumber GitHub Pages disetel ke "GitHub Actions", dan selama sumbernya masih
-"Deploy from a branch", deploy dari `main` akan selalu ditolak.
+## 1. Pastikan izin workflow sudah benar
 
-Ubah sumber Pages menjadi workflow lewat `gh`:
-
-```bash
-gh api -X PUT repos/bamsanuja/project-gasing/pages -f build_type=workflow
-```
-
-Verifikasi hasilnya:
+Saya sudah mengubah setelannya ke read and write. Verifikasi saja:
 
 ```bash
-gh api repos/bamsanuja/project-gasing/pages --jq '{build_type, html_url, status}'
+gh api repos/bamsanuja/project-gasing/actions/permissions/workflow \
+  --jq '.default_workflow_permissions'
 ```
 
-Kalau `gh` menolak karena kurang scope, jangan dipaksa. Laporkan bahwa langkah
-ini harus dilakukan manual lewat **Settings → Pages → Build and deployment →
-Source → GitHub Actions**, lalu lanjut ke langkah 2.
+Harus mengembalikan `"write"`. Kalau masih `"read"`, berhenti dan beri tahu
+saya, karena berarti perubahan saya belum tersimpan. Jangan mencoba mengubahnya
+lewat API, permintaan tulis ke setelan repositori akan ditolak classifier.
 
-Setelah itu cek juga apakah environment `github-pages` membatasi branch:
-
-```bash
-gh api repos/bamsanuja/project-gasing/environments/github-pages --jq '.deployment_branch_policy'
-```
-
-Kalau ada pembatasan yang tidak memuat `main`, laporkan supaya saya perbaiki
-manual. Jangan ubah sendiri kebijakan environment tanpa memberi tahu saya.
-
-## 2. Ganti nama tampilan aplikasi
-
-Nama lama "SiPongi Land-Watch" diganti menjadi **Dashboard Ringkasan Heat Spot**.
-
-Ganti di berkas-berkas berikut, dan hanya di tempat yang memang nama tampilan:
-
-- `index.html` baris 7, elemen `<title>`. Jadikan:
-  `Dashboard Ringkasan Heat Spot | Penapisan Spasial Titik Panas`
-- `index.html`, atribut `content` pada `<meta name="description">` kalau memuat
-  nama lama.
-- `src/components/Navbar.tsx` baris 34, isi elemen `<h1>`.
-- `README.md` baris 1, judul dokumen.
-- `src/types/index.ts` baris 2, komentar `// Domain schema for ...`.
-- `src/components/HotspotTable.tsx` baris 51, nama berkas unduhan CSV. Ubah
-  `land-watch-ekspor-` menjadi `ringkasan-heatspot-`.
-
-**Jangan diubah:**
-
-- `package.json` medan `name` dan `homepage`. Keduanya terikat pada nama
-  repositori dan URL situs. Mengubahnya akan merusak alamat GitHub Pages.
-- `src/utils/imageryCache.ts` baris 19, `DB_NAME = 'sipongi-land-watch'`. Itu
-  nama basis data IndexedDB di browser. Mengubahnya membuat seluruh ingatan
-  pembacaan citra dan koreksi manual pengguna hilang.
-- Nama folder di disk, dan nama repositori di GitHub.
-
-Setelah selesai, cari sisa kemunculan nama lama dan tunjukkan hasilnya kepada
-saya sebelum lanjut:
-
-```bash
-grep -rn "SiPongi Land-Watch\|Sipongi Land-Watch\|land-watch" src/ index.html README.md | grep -v node_modules
-```
-
-Yang tersisa seharusnya hanya `DB_NAME` di `imageryCache.ts`.
-
-## 3. Pastikan aplikasi masih sehat
-
-Jalankan ketiganya dan tunjukkan keluarannya:
+## 2. Pastikan aplikasi sehat
 
 ```bash
 npx tsc --noEmit -p tsconfig.app.json
@@ -92,74 +43,80 @@ npx oxlint src
 npm run build
 ```
 
-Semua harus bersih. Kalau ada error, perbaiki dulu sebelum lanjut, dan
-jelaskan apa yang Anda ubah.
+Ketiganya harus bersih. Perbaiki dulu kalau ada yang gagal, dan jelaskan apa
+yang Anda ubah.
 
-## 4. Commit dan push
+## 3. Commit dan push
 
-Ada pekerjaan yang belum ter-commit dari sesi sebelumnya, di luar perubahan
-nama tadi:
-
-- `src/utils/imageryCache.ts` (berkas baru) beserta perubahan di `src/App.tsx`
-  dan `src/components/ImageryGrid.tsx`: ingatan pembacaan citra di IndexedDB,
-  supaya impor berulang tidak perlu membaca ulang ribuan ubin citra.
-- `src/index.css` dan `src/components/GisMap.tsx`: perbaikan tooltip Leaflet
-  yang teksnya meluber keluar kotak.
-- `src/components/FdrsPanel.tsx`: pesan kosong yang mengarahkan ke tab Actions,
-  menggantikan saran menjalankan perintah terminal.
-
-Commit semuanya dalam satu commit dengan pesan:
+Commit perubahan `deploy.yml` dan berkas prompt ini dengan pesan:
 
 ```
-feat: ganti nama jadi Dashboard Ringkasan Heat Spot, ingatan pembacaan citra, perbaikan tooltip
+ci: terbitkan lewat branch gh-pages, hindari kebijakan environment
 ```
 
-Pastikan `.venv-fdrs/` dan `_to_delete/` tidak ikut, keduanya sudah ada di
-`.gitignore`. Lalu push ke `origin main`.
+Push ke `origin main`.
 
-## 5. Setelah push, jalankan dan periksa
+Catatan soal `.git/index.lock`: language server Antigravity IDE berulang kali
+membuat lock kosong di repositori ini. Kalau muncul lagi, pastikan tidak ada
+proses `git` sungguhan yang memegangnya, hapus, lalu rangkai perintah git dalam
+satu baris supaya tidak keburu terkunci lagi.
 
-Tunggu workflow `deploy.yml` selesai, lalu laporkan statusnya:
+## 4. Pantau deploy sampai selesai
 
 ```bash
 gh run list --limit 3
 gh run watch
 ```
 
-Kalau deploy berhasil, jalankan workflow FDRS-nya sekaligus:
+Kalau gagal, tunjukkan lognya dan berhenti. Jangan menjalankan langkah 5.
+
+Satu kemungkinan kegagalan yang mudah diperbaiki: kalau `peaceiris/actions-gh-pages@v4`
+tidak dapat di-resolve, ganti ke versi major terbaru yang tersedia, lalu commit
+dan jalankan ulang. Perbaikan seperti itu boleh Anda lakukan sendiri tanpa
+bertanya, cukup laporkan.
+
+## 5. Jalankan pengambilan FDRS
+
+Hanya kalau langkah 4 berhasil.
 
 ```bash
 gh workflow run "Perbarui data tingkat bahaya kebakaran"
+sleep 20
 gh run list --workflow="Perbarui data tingkat bahaya kebakaran" --limit 2
+gh run watch
 ```
 
-Workflow itu mengambil grid Fire Danger Rating harian dari GFWED di server
-GitHub, menyimpannya sebagai `public/fdrs-latest.json`, dan commit-nya memicu
-deploy ulang. Perlu dijalankan di server karena jaringan komputer ini memblokir
-port 443 ke `portal.nccs.nasa.gov`.
+Workflow ini mengambil grid Fire Danger Rating harian dari GFWED di server
+GitHub, menyimpannya sebagai `public/fdrs-latest.json`, lalu commit-nya memicu
+deploy ulang. Dijalankan di server karena jaringan komputer ini memblokir port
+443 ke `portal.nccs.nasa.gov`.
 
-Kalau workflow FDRS gagal, tunjukkan lognya. Kemungkinan penyebab yang wajar:
-tanggal yang diminta belum terbit di GFWED, dan skripnya memang mundur sampai
-tiga hari sebelum menyerah.
+Kalau gagal karena tanggalnya belum terbit di GFWED, itu wajar dan bukan bug.
+Skripnya memang mundur sampai tiga hari sebelum menyerah. Tunjukkan lognya.
 
-## Yang JANGAN dikerjakan
+## 6. Verifikasi situs yang tayang
 
-- Jangan menghapus branch `gh-pages`, skrip `predeploy`/`deploy` di
-  package.json, maupun dependensi `gh-pages`. Semua itu jalur cadangan, dan
-  baru aman dibuang setelah deploy lewat Actions terbukti berhasil.
-- Jangan mengubah logika apa pun di `src/utils/`. Ambang classifier citra,
-  ambang FDRS, dan radius klasterisasi semuanya sudah dikalibrasi terhadap data
-  nyata.
-- Jangan menambah dependensi baru.
+```bash
+curl -s https://bamsanuja.github.io/project-gasing/ | grep -o '<title>[^<]*</title>'
+curl -s -o /dev/null -w '%{http_code}\n' https://bamsanuja.github.io/project-gasing/fdrs-latest.json
+```
+
+Judulnya harus memuat "Dashboard Ringkasan Heat Spot". Berkas FDRS harus
+menjawab 200 kalau langkah 5 berhasil. Pages bisa perlu satu sampai dua menit
+sebelum menyajikan versi baru, jadi ulangi sekali kalau masih versi lama.
+
+## Yang jangan dikerjakan
+
+- Jangan mengubah setelan repositori lewat API. Kalau ada yang perlu diubah,
+  laporkan dan biarkan saya yang klik.
+- Jangan menghapus branch `gh-pages`. Branch itu justru yang sekarang menyajikan
+  situs.
+- Jangan menyentuh logika di `src/utils/`. Ambang classifier citra, ambang FDRS,
+  dan radius klasterisasi sudah dikalibrasi terhadap data nyata.
+- Jangan menambah dependensi.
 
 ## Laporan akhir
 
-Sampaikan dalam bahasa Indonesia, ringkas:
-
-1. Sumber GitHub Pages berhasil diubah atau perlu saya klik manual.
-2. Berapa berkas yang namanya diganti, dan sisa kemunculan nama lama kalau ada.
-3. Hasil tsc, oxlint, dan build.
-4. Hash commit dan konfirmasi push.
-5. Status deploy dan status workflow FDRS.
-6. Apa pun yang Anda temukan janggal sambil jalan, meskipun saya tidak
-   menanyakannya.
+Bahasa Indonesia, ringkas: hasil pemeriksaan izin workflow, hasil tsc dan lint
+dan build, hash commit, status deploy, status FDRS, judul yang tayang di situs,
+dan apa pun yang Anda temukan janggal meskipun saya tidak menanyakannya.
