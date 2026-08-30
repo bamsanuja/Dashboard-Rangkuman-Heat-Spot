@@ -31,7 +31,7 @@ export default function Navbar({ tab, onTab, onImport, provenance, count }: Prop
               <Flame className="w-5 h-5 text-amber-den" />
             </div>
             <div className="min-w-0">
-              <h1 className="font-bold text-cream leading-tight truncate">SiPongi Land-Watch</h1>
+              <h1 className="font-bold text-cream leading-tight truncate">Dashboard Ringkasan Heat Spot</h1>
               <p className="text-[11px] text-cream-faint leading-tight truncate">
                 Penapisan spasial titik panas
               </p>

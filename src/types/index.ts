@@ -1,5 +1,5 @@
 // ============================================================================
-// Domain schema for SiPongi Land-Watch.
+// Domain schema for Dashboard Ringkasan Heat Spot.
 //
 // Design rule: this app never asserts a fact it was not given.
 //   - Hotspots come only from a file the user imported. Nothing ships bundled.

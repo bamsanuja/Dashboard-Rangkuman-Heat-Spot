@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Check, RefreshCw, ChevronDown } from 'lucide-react';
+import { Check, RefreshCw, ChevronDown, Brain } from 'lucide-react';
 import type { Hotspot, LandIndication } from '../types';
+import type { CacheStats } from '../utils/imageryCache';
 import {
   ALL_INDICATIONS, formatDuration, INDICATION_COLOR, INDICATION_LABEL, INDICATION_SHORT, tileUrlFor,
   type WorkEstimate,
@@ -30,6 +31,9 @@ export default function ImageryGrid({
   onAnalyse,
   analysing,
   estimate,
+  cacheStats,
+  restored,
+  onForgetMachine,
 }: {
   hotspots: Hotspot[];
   onSelect: (h: Hotspot) => void;
@@ -37,6 +41,9 @@ export default function ImageryGrid({
   onAnalyse: () => void;
   analysing: boolean;
   estimate: WorkEstimate;
+  cacheStats?: CacheStats | null;
+  restored?: number | null;
+  onForgetMachine?: () => void;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [shown, setShown] = useState(PAGE);
@@ -80,6 +87,40 @@ export default function ImageryGrid({
           </div>
         )}
       </div>
+
+      {cacheStats && cacheStats.total > 0 && (
+        <div className="panel-sunken px-3 py-2.5 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-cream-muted">
+            <Brain className="w-3.5 h-3.5 text-camel shrink-0" />
+            Ingatan pembacaan citra
+          </span>
+          <span className="text-[11px] font-mono text-cream">
+            {cacheStats.total.toLocaleString('id-ID')} lokasi
+          </span>
+          {cacheStats.reviewed > 0 && (
+            <span className="text-[11px] font-mono text-amber-den">
+              {cacheStats.reviewed.toLocaleString('id-ID')} dikoreksi manual
+            </span>
+          )}
+          <span className="text-[11px] text-cream-faint">
+            {(cacheStats.approxBytes / 1024 / 1024).toFixed(1)} MB
+          </span>
+          {restored !== null && restored !== undefined && restored > 0 && (
+            <span className="text-[11px] text-cream-muted">
+              {restored.toLocaleString('id-ID')} titik pada impor ini terjawab tanpa mengambil citra lagi
+            </span>
+          )}
+          {onForgetMachine && (
+            <button
+              onClick={onForgetMachine}
+              className="ml-auto text-[11px] text-cream-faint hover:text-sienna shrink-0"
+              title="Menghapus pembacaan mesin dan menyisakan koreksi manual Anda"
+            >
+              Lupakan pembacaan mesin
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-8 xl:grid-cols-10 gap-2">
         {visible.map((h) => {

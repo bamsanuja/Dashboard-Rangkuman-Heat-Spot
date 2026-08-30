@@ -23,6 +23,7 @@ import type { DataProvenance, FdrsGrid, FilterState, FireCluster, Hotspot, Image
 import { buildLadder, clusterHotspots, DEFAULT_RADIUS } from './utils/clustering';
 import { analyseMany, AUTO_ANALYSIS_THRESHOLD, estimateWork, formatDuration } from './utils/imageryIndication';
 import { loadPublishedGrid } from './utils/fdrs';
+import * as imageryCache from './utils/imageryCache';
 import { computeSummary, withFdrs, withProximity } from './utils/spatialAnalysis';
 import { importAny, SIPONGI_DOWNLOAD_URL, type AnyImport, type ImportResult } from './utils/importers';
 import { INSTITUTIONS, TENURE_NOTE } from './utils/legal';
@@ -48,6 +49,8 @@ export default function App() {
   const [importerOpen, setImporterOpen] = useState(false);
   const [analysing, setAnalysing] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [cacheStats, setCacheStats] = useState<imageryCache.CacheStats | null>(null);
+  const [restored, setRestored] = useState<number | null>(null);
   const [radius, setRadius] = useState<number>(DEFAULT_RADIUS);
   const [clusterView, setClusterView] = useState(false);
   const [dropError, setDropError] = useState<string | null>(null);
@@ -58,8 +61,33 @@ export default function App() {
   const stopRef = useRef(false);
 
   const applyReading = (id: string, reading: ImageryReading) => {
-    setHotspots((prev) => prev.map((h) => (h.id === id ? { ...h, imagery: reading } : h)));
+    setHotspots((prev) =>
+      prev.map((h) => {
+        if (h.id !== id) return h;
+        void imageryCache.save(h.latitude, h.longitude, reading);
+        return { ...h, imagery: reading };
+      }),
+    );
     setSelected((prev) => (prev && prev.id === id ? { ...prev, imagery: reading } : prev));
+  };
+
+  /**
+   * Memulihkan pembacaan citra dari ingatan browser sebelum satu ubin pun
+   * diambil. Berkas SiPongi+ harian banyak mengulang lokasi yang sama, jadi
+   * impor berikutnya sebagian besar terjawab tanpa jaringan sama sekali.
+   */
+  const hydrateFromCache = async (points: Hotspot[]): Promise<{ points: Hotspot[]; restored: number }> => {
+    const cached = await imageryCache.loadAll();
+    if (!cached.size) return { points, restored: 0 };
+    let n = 0;
+    const out = points.map((h) => {
+      const hit = cached.get(imageryCache.cacheKey(h.latitude, h.longitude));
+      if (!hit) return h;
+      n++;
+      const { savedAt: _savedAt, classifierVersion: _v, ...reading } = hit;
+      return { ...h, imagery: reading as ImageryReading };
+    });
+    return { points: out, restored: n };
   };
 
   /**
@@ -90,28 +118,37 @@ export default function App() {
     );
     setAnalysing(false);
     setProgress(null);
+    void imageryCache.stats().then(setCacheStats);
   };
 
   const stopImagery = () => {
     stopRef.current = true;
   };
 
-  const handleImported = (result: ImportResult) => {
+  const handleImported = async (result: ImportResult) => {
     // Replaces rather than appends: mixing two sources under one provenance
     // line would make the attribution false.
-    const loaded = withFdrs(withProximity(result.hotspots), fdrsGrid);
+    const base = withFdrs(withProximity(result.hotspots), fdrsGrid);
+    const { points: loaded, restored: n } = await hydrateFromCache(base);
     setHotspots(loaded);
     setProvenance(result.provenance);
     setFilters(EMPTY_FILTERS);
     setTab('map');
+    setRestored(n);
+    void imageryCache.stats().then(setCacheStats);
     // Small imports read themselves. Large ones wait to be asked, from the
     // Citra tab, so nobody triggers thousands of tile fetches by accident.
-    if (loaded.length <= AUTO_ANALYSIS_THRESHOLD) void runImagery(loaded);
+    const pending = loaded.filter((h) => !h.imagery && !h.lowPrecision);
+    if (pending.length && pending.length <= AUTO_ANALYSIS_THRESHOLD) void runImagery(loaded);
   };
 
   // Grid yang diterbitkan bersama situs dimuat sendiri saat aplikasi dibuka,
   // sehingga pengguna tidak perlu mengambil atau mengimpor apa pun untuk
   // lapisan ini. Impor manual tetap menimpa hasilnya kalau diperlukan.
+  useEffect(() => {
+    void imageryCache.stats().then(setCacheStats);
+  }, []);
+
   useEffect(() => {
     let batal = false;
     void loadPublishedGrid().then((grid) => {
@@ -132,28 +169,32 @@ export default function App() {
 
   const handleAnyImport = (payload: AnyImport) => {
     if (payload.kind === 'fdrs') handleFdrs(payload.grid);
-    else handleImported(payload.result);
+    else void handleImported(payload.result);
   };
 
   const handleImagery = applyReading;
 
-  /** A person disagreeing with the machine. Their call wins, and is recorded. */
+  /**
+   * A person disagreeing with the machine. Their call wins, is recorded, and is
+   * kept in the browser's memory so it survives the next import and every
+   * future change to the classifier.
+   */
   const handleOverride = (id: string, indication: LandIndication) => {
     setHotspots((prev) =>
       prev.map((h) => {
         if (h.id !== id || !h.imagery) return h;
-        return {
-          ...h,
-          imagery: {
-            ...h.imagery,
-            indication,
-            reviewedByHuman: true,
-            originalIndication: h.imagery.originalIndication ?? h.imagery.indication,
-            strength: 1,
-          },
+        const reading: ImageryReading = {
+          ...h.imagery,
+          indication,
+          reviewedByHuman: true,
+          originalIndication: h.imagery.originalIndication ?? h.imagery.indication,
+          strength: 1,
         };
+        void imageryCache.save(h.latitude, h.longitude, reading);
+        return { ...h, imagery: reading };
       }),
     );
+    void imageryCache.stats().then(setCacheStats);
   };
 
   /** Menyeret berkas ke mana saja di jendela sama artinya dengan mengimpor. */
@@ -333,6 +374,12 @@ export default function App() {
                 onAnalyse={() => void runImagery(filtered)}
                 analysing={analysing}
                 estimate={estimateWork(filtered.filter((h) => !h.imagery && !h.lowPrecision))}
+                cacheStats={cacheStats}
+                restored={restored}
+                onForgetMachine={async () => {
+                  await imageryCache.clearMachineReadings();
+                  void imageryCache.stats().then(setCacheStats);
+                }}
               />
             )}
             {tab === 'table' && (

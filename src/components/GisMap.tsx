@@ -196,7 +196,7 @@ export default function GisMap({
             pathOptions={{ color: '#fdf7f2', weight: 1.5, fillColor: '#a19574', fillOpacity: 0.08, dashArray: '6 5' }}
           >
             <Tooltip sticky>
-              <div className="p-2 max-w-[260px]">
+              <div className="p-2.5">
                 <p className="font-semibold text-cream text-[12px]">{area.name}</p>
                 <p className="text-[11px] text-cream-muted mt-0.5">{area.managingUnit}</p>
                 <p className="text-[11px] text-cream-faint mt-1 font-mono">

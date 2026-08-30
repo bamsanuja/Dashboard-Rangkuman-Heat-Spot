@@ -26,12 +26,24 @@ export default function FdrsPanel({
           <Flame className="w-4 h-4 text-cream-faint shrink-0 mt-0.5" />
           <div>
             <h3 className="text-[12px] font-bold text-cream">Tingkat bahaya kebakaran belum dimuat</h3>
-            <p className="text-[11px] text-cream-muted leading-relaxed mt-1 max-w-2xl">
-              Jalankan <span className="font-mono text-cream">python scripts/fetch-fdrs.py 2026-08-26</span> untuk
-              mengambil grid harian GFWED, lalu impor berkas JSON hasilnya lewat tombol Impor data. Tanpa lapisan
-              ini, aplikasi hanya bisa mengatakan apa yang ada di bawah titik panas, dan belum bisa mengatakan
-              seberapa kering lahannya.
-            </p>
+            <div className="text-[11px] text-cream-muted leading-relaxed mt-1 max-w-2xl space-y-1.5">
+              <p>
+                Tanpa lapisan ini, aplikasi hanya bisa mengatakan apa yang ada di bawah titik panas, dan belum bisa
+                mengatakan seberapa kering lahannya.
+              </p>
+              <p>
+                <span className="text-cream font-medium">Cara menyalakannya, tanpa terminal:</span> buka halaman
+                GitHub repositori ini, masuk ke tab <span className="text-cream">Actions</span>, pilih "Perbarui
+                data tingkat bahaya kebakaran", lalu klik <span className="text-cream">Run workflow</span>. Robotnya
+                mengambil data di server GitHub, jadi blokir jaringan di komputer Anda tidak berpengaruh.
+              </p>
+              <p className="text-cream-faint">
+                Kalau Anda sedang membuka aplikasi ini lewat <span className="font-mono">localhost</span>, jalankan{' '}
+                <span className="font-mono text-cream-muted">git pull</span> setelah robotnya selesai, karena
+                grid-nya disimpan sebagai berkas di dalam repositori. Di situs yang sudah terbit, grid itu termuat
+                sendiri tanpa langkah tambahan.
+              </p>
+            </div>
           </div>
         </div>
       </div>
